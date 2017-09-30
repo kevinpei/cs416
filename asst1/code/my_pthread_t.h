@@ -16,11 +16,21 @@
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ucontext.h>
+
+tcb scheduler = malloc(sizeof(tcb));
 
 typedef uint my_pthread_t;
 
+typedef struct _context_priority{
+	ucontext_t context;
+	int priority;
+} priority;
+
 typedef struct threadControlBlock {
-	/* add something here */
+	ucontext_t* running_queue;
+	ucontext_t* waiting_queue;
+	priority* priority_queue;
 } tcb; 
 
 /* mutex struct definition */
