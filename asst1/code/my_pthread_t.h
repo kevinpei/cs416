@@ -18,20 +18,20 @@
 #include <stdlib.h>
 #include <ucontext.h>
 
-tcb scheduler = malloc(sizeof(tcb));
+tcb* scheduler = malloc(sizeof(tcb));
 
 typedef uint my_pthread_t;
 
-typedef struct _context_priority{
+typedef struct threadControlBlock {
+	my_pthread* running_queue;
+	my_pthread* waiting_queue;
+} tcb; 
+
+typedef struct my_pthread {
 	ucontext_t context;
 	int priority;
-} priority;
-
-typedef struct threadControlBlock {
-	ucontext_t* running_queue;
-	ucontext_t* waiting_queue;
-	priority* priority_queue;
-} tcb; 
+	uint pid;
+} my_pthread;
 
 /* mutex struct definition */
 typedef struct my_pthread_mutex_t {
