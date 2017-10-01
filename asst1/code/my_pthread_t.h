@@ -25,6 +25,7 @@ typedef uint my_pthread_t;
 typedef struct threadControlBlock {
 	my_pthread* running_queue;
 	my_pthread* waiting_queue;
+	my_pthread_t current_thread;
 } tcb; 
 
 typedef struct my_pthread {

@@ -20,7 +20,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 //	Malloc some space and create a new thread at the end of the running queue.
 	ptr = malloc(sizeof(my_pthread));
 	getcontext(&(ptr->context));
-	ptr->context.uc_link=0;
+	ptr->context.uc_link = 0;
 	
 //	Which signals do we want to block?
 //	ptr->context.uc_sigmask = 
@@ -40,15 +40,21 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 
 /* give CPU pocession to other user level threads voluntarily */
 int my_pthread_yield() {
+	//Get current_thread ID because you can only yield if you're the currently running thread
+	//Move from the running queue to the waiting queue
+	
 	return 0;
 };
 
 /* terminate a thread */
 void my_pthread_exit(void *value_ptr) {
+	//Same as yield, except end the thread
 };
 
 /* wait for thread termination */
 int my_pthread_join(my_pthread_t thread, void **value_ptr) {
+	//Same as yield, just also check to see if the other thread has finished yet
+	
 	return 0;
 };
 
