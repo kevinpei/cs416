@@ -12,29 +12,29 @@
 int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg) {
 	
 //	Iterate through the running queue and stop when we reach a NULL value
-	my_pthread* ptr = scheduler->running_queue;
+	thread_node* ptr = scheduler.running_queue;
 	while (ptr != NULL) {
-		&ptr += sizeof(my_pthread);
+		ptr = ptr->next;
 	}
 	
 //	Malloc some space and create a new thread at the end of the running queue.
 	ptr = malloc(sizeof(my_pthread));
-	getcontext(&(ptr->context));
-	ptr->context.uc_link = 0;
+	getcontext(&(ptr->thread.context));
+	ptr->thread.context.uc_link = 0;
 	
 //	Which signals do we want to block?
 //	ptr->context.uc_sigmask = 
 
-//	Initializes a stack for the new thread with size 64000 bytes
-	ptr->context.uc_stack.ss_sp=malloc(64000);
-	ptr->context.uc_stack.ss_size=64000;
-	ptr->context.uc_stack.ss_flags=0;
+//	Initializes a stack for the new thread with size 64000 bits
+	ptr->thread.context.uc_stack.ss_sp=malloc(64000);
+	ptr->thread.context.uc_stack.ss_size=64000;
+	ptr->thread.context.uc_stack.ss_flags=0;
 	
 //	Sets the pid of the new thread to be the first argument given
-	ptr->pid = *thread;
+	ptr->thread.pid = *thread;
 	
 //	Make a new context. We assume the function has 0 arguments.
-	makecontext(&(ptr.context), function, 0);
+	makecontext(&(ptr->thread.context), function, 0);
 	return 0;
 };
 
@@ -54,6 +54,20 @@ void my_pthread_exit(void *value_ptr) {
 /* wait for thread termination */
 int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 	//Same as yield, just also check to see if the other thread has finished yet
+	my_pthread* ptr = scheduler.running_queue;
+	my_pthread* prev = NULL;
+	//Remove the thread from the running queue
+	while (ptr->thread.pid != scheduler.current_thread && ptr != NULL) {
+		prev = ptr;
+		ptr = ptr->next;
+	}
+	if (prev == NULL) {
+		scheduler.running_queue = NULL;
+	} else {
+		prev->next = ptr->next;
+	}
+	
+	//Wait for the other thread to finish executing
 	
 	return 0;
 };
