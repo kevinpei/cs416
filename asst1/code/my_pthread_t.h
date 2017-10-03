@@ -36,7 +36,7 @@ typedef struct threadControlBlock {
 typedef struct my_pthread {
 	ucontext_t context;
 	int priority;
-	uint pid;
+	my_pthread_t pid;
 } my_pthread;
 
 /* mutex struct definition */
