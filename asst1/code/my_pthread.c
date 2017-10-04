@@ -54,6 +54,7 @@ void my_pthread_exit(void *value_ptr) {
 /* wait for thread termination */
 int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 	//Same as yield, just also check to see if the other thread has finished yet
+	/*
 	my_pthread* ptr = scheduler.running_queue;
 	my_pthread* prev = NULL;
 	//Remove the thread from the running queue
@@ -66,9 +67,21 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 	} else {
 		prev->next = ptr->next;
 	}
+	*/
+	
+	//Remove from the running queue
+	my_pthread_yield();
 	
 	//Wait for the other thread to finish executing
-	
+	finished_executing = 0;
+	while (finished_executing == 0) {
+		my_pthread* ptr = scheduler.running_queue;
+		while (ptr->next != NULL) {
+			if (ptr->thread.pid == thread) {
+				my_pthread_exit(NULL);
+			}
+		}
+	}
 	return 0;
 };
 
