@@ -41,7 +41,8 @@ typedef struct my_pthread {
 
 /* mutex struct definition */
 typedef struct my_pthread_mutex_t {
-	/* add something here */
+	int pid;
+	int value;
 } my_pthread_mutex_t;
 
 /* define your data structures here: */
