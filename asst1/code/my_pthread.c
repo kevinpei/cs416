@@ -93,7 +93,7 @@ int my_pthread_mutex_init(my_pthread_mutex_t *mutex, const pthread_mutexattr_t *
 
 /* aquire the mutex lock */
 int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
-	while (1 == 1) {
+	while (1) {
 		if (mutex->value == 0) {
 			mutex->value = 1;
 			mutex->pid = scheduler->current_thread;
