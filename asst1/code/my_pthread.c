@@ -37,8 +37,24 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	makecontext(&(ptr->thread.context), function, 0);
 	ptr->thread.priority_level = 1;
 	ptr->thread.priority = 1000;
+	struct itimerval* timer = malloc(sizeof(struct itimerval));
+	getitimer(ITIMER_REAL, timer);
+	if (timer->it_interval != 25) {
+		timer->it_interval = 25;
+		timer->it_value = 25;
+		setitimer(ITIMER_REAL, timer, NULL);
+	}
 	return 0;
 };
+
+int execute() {
+	if (scheduler->current_thread.priority_level == 1) {
+		scheduler->current_thread.priority_level = 2;
+	} else if (scheduler->current_thread.priority_level == 2) {
+		
+	}
+	return 0;
+}
 
 /* give CPU pocession to other user level threads voluntarily */
 int my_pthread_yield() {
