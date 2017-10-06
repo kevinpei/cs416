@@ -35,8 +35,8 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	
 //	Make a new context. We assume the function has 0 arguments.
 	makecontext(&(ptr->thread.context), function, 0);
-	
-	setitimer
+	ptr->thread.priority_level = 1;
+	ptr->thread.priority = 1000;
 	return 0;
 };
 
