@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ucontext.h>
+#include <sys/time.h>
 
 tcb* scheduler = malloc(sizeof(tcb));
 
@@ -36,14 +37,19 @@ typedef struct threadControlBlock {
 typedef struct my_pthread {
 	ucontext_t context;
 	int priority;
+	int priority_level;
 	uint pid;
 } my_pthread;
 
 /* mutex struct definition */
 typedef struct my_pthread_mutex_t {
-	int pid;
-	int value;
+	uint pid;
+	lock* mutex_lock;
 } my_pthread_mutex_t;
+
+typedef struct lock {
+	int value;
+} lock;
 
 /* define your data structures here: */
 

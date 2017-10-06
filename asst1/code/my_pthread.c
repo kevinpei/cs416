@@ -12,7 +12,7 @@
 int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg) {
 	
 //	Iterate through the running queue and stop when we reach a NULL value
-	thread_node* ptr = scheduler.running_queue;
+	thread_node* ptr = scheduler->running_queue;
 	while (ptr != NULL) {
 		ptr = ptr->next;
 	}
@@ -25,7 +25,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 //	Which signals do we want to block?
 //	ptr->context.uc_sigmask = 
 
-//	Initializes a stack for the new thread with size 64000 bits
+//	Initializes a stack for the new thread with size 64000 bytes
 	ptr->thread.context.uc_stack.ss_sp=malloc(64000);
 	ptr->thread.context.uc_stack.ss_size=64000;
 	ptr->thread.context.uc_stack.ss_flags=0;
@@ -35,6 +35,8 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	
 //	Make a new context. We assume the function has 0 arguments.
 	makecontext(&(ptr->thread.context), function, 0);
+	
+	setitimer
 	return 0;
 };
 
@@ -87,15 +89,16 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 
 /* initial the mutex lock */
 int my_pthread_mutex_init(my_pthread_mutex_t *mutex, const pthread_mutexattr_t *mutexattr) {
-	mutex->value = 0;
+	mutex->mutex_lock = malloc(sizeof(lock));
+	mutex->mutex_lock->value = 0;
 	return 0;
 };
 
 /* aquire the mutex lock */
 int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
 	while (1) {
-		if (mutex->value == 0) {
-			mutex->value = 1;
+		if (mutex->mutex_lock->value == 0) {
+			mutex->mutex_lock->value = 1;
 			mutex->pid = scheduler->current_thread;
 			return 0;
 		}
@@ -105,8 +108,8 @@ int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
 
 /* release the mutex lock */
 int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex) {
-	if (scheduler->current_thread == mutex->pid) {
-		mutex->value = 0;
+	if (scheduler->current_thread == mutex->mutex_lock->pid) {
+		mutex->mutex_lock->value = 0;
 		mutex->pid = -1;
 	}
 	return 0;
@@ -114,6 +117,12 @@ int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex) {
 
 /* destroy the mutex */
 int my_pthread_mutex_destroy(my_pthread_mutex_t *mutex) {
+	while (1) {
+		if (mutex->mutex_lock->value == 0) {
+			free(mutex->mutex_lock);
+			return 0;
+		}
+	}
 	return 0;
 };
 
