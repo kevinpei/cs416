@@ -50,8 +50,17 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 int execute() {
 	if (scheduler->current_thread.priority_level == 1) {
 		scheduler->current_thread.priority_level = 2;
+		//Swap contexts
 	} else if (scheduler->current_thread.priority_level == 2) {
-		
+		if (execution_time == 0) {
+			execution_time += 1;
+		} else {
+			execution_time = 0;
+			scheduler->current_thread.priority_level = 3;
+			//Swap contexts
+		}
+	} else {
+		//Keep running until it finishes
 	}
 	return 0;
 }

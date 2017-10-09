@@ -38,6 +38,7 @@ typedef struct my_pthread {
 	ucontext_t context;
 	int priority;
 	int priority_level;
+	int execution_time;
 	uint pid;
 } my_pthread;
 
