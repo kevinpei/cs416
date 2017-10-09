@@ -35,10 +35,13 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	
 //	Make a new context. We assume the function has 0 arguments.
 	makecontext(&(ptr->thread.context), function, 0);
+//	Initiate the thread to have priority level 1 and priority of 1
 	ptr->thread.priority_level = 1;
-	ptr->thread.priority = 1000;
+	ptr->thread.priority = 1;
+//	Create a new timer and ge tthe current timer value for the real time timer
 	struct itimerval* timer = malloc(sizeof(struct itimerval));
 	getitimer(ITIMER_REAL, timer);
+//	If a signal is not being sent every 25 milliseconds, then set a new timer
 	if (timer->it_interval != 25) {
 		timer->it_interval = 25;
 		timer->it_value = 25;
@@ -47,10 +50,13 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	return 0;
 };
 
+// The signal handler that handles the signal when the itimer reaches 0
 int execute() {
+//	If the priority level is 1, then it only runs for 25 ms before switching
 	if (scheduler->current_thread.priority_level == 1) {
 		scheduler->current_thread.priority_level = 2;
 		//Swap contexts
+//	If the priority level is 2, then it runs for 50 ms before switching
 	} else if (scheduler->current_thread.priority_level == 2) {
 		if (execution_time == 0) {
 			execution_time += 1;
@@ -59,6 +65,7 @@ int execute() {
 			scheduler->current_thread.priority_level = 3;
 			//Swap contexts
 		}
+//	If the priority level is 3, then it runs until it finishes
 	} else {
 		//Keep running until it finishes
 	}
