@@ -46,6 +46,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		timer->it_interval = 25;
 		timer->it_value = 25;
 		setitimer(ITIMER_REAL, timer, NULL);
+		signal (SIGALRM, execute);
 	}
 	return 0;
 };

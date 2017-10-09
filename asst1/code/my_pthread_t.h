@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <ucontext.h>
 #include <sys/time.h>
+#include <signal.h>
 
 tcb* scheduler = malloc(sizeof(tcb));
 
