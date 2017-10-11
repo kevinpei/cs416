@@ -11,33 +11,28 @@
 /* create a new thread */
 int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg) {
 	
-//	Iterate through the running queue and stop when we reach a NULL value
-	thread_node* ptr = scheduler->running_queue;
-	while (ptr != NULL) {
-		ptr = ptr->next;
-	}
-	
-//	Malloc some space and create a new thread at the end of the running queue.
-	ptr = malloc(sizeof(my_pthread));
-	getcontext(&(ptr->thread.context));
-	ptr->thread.context.uc_link = 0;
+//	Malloc some space and create a new thread
+	thread_node* new_thread = malloc(sizeof(thread_node));
+	new_thread->thread = malloc(sizeof(my_pthread));
+	getcontext(&(new_thread->thread->context));
+	new_thread->thread->context.uc_link = 0;
 	
 //	Which signals do we want to block?
 //	ptr->context.uc_sigmask = 
 
 //	Initializes a stack for the new thread with size 64000 bytes
-	ptr->thread.context.uc_stack.ss_sp=malloc(64000);
-	ptr->thread.context.uc_stack.ss_size=64000;
-	ptr->thread.context.uc_stack.ss_flags=0;
+	new_thread->thread->context.uc_stack.ss_sp=malloc(64000);
+	new_thread->thread->context.uc_stack.ss_size=64000;
+	new_thread->thread->context.uc_stack.ss_flags=0;
 	
 //	Sets the pid of the new thread to be the first argument given
-	ptr->thread.pid = *thread;
+	new_thread->thread->pid = *thread;
 	
 //	Make a new context. We assume the function has 0 arguments.
-	makecontext(&(ptr->thread.context), function, 0);
+	makecontext(&(new_thread->thread->context), function, 0);
 //	Initiate the thread to have priority level 1 and priority of 1
-	ptr->thread.priority_level = 1;
-	ptr->thread.priority = 1;
+	new_thread->thread->priority_level = 1;
+	new_thread->thread->priority = 1;
 //	Create a new timer and ge tthe current timer value for the real time timer
 	struct itimerval* timer = malloc(sizeof(struct itimerval));
 	getitimer(ITIMER_REAL, timer);
@@ -48,23 +43,74 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		setitimer(ITIMER_REAL, timer, NULL);
 		signal (SIGALRM, execute);
 	}
+	if (scheduler->current_thread == NULL) {
+		scheduler->current_thread = malloc(sizeof(my_pthread));
+		scheduler->current_thread = new_thread->thread;
+	} else {
+		
+	}
+	
+	add_to_running_queue(new_thread);
+	
 	return 0;
 };
+
+int add_to_running_queue(thread_node* node) {
+	
+//	Iterate through the running queue and stop when we reach a NULL value		
+	if (scheduler->running_queue == NULL) {
+		scheduler->running_queue = new_thread;
+	} else {
+		thread_node* ptr = scheduler->running_queue;
+	
+		while (ptr != NULL) {
+			ptr = ptr->next;
+		}
+		
+	}
+}
+
+//Returns the pthread with the highest priority after increasing the priorities of every pthread
+thread_node* select_next_pthread() {
+	thread_node* next_pthread = NULL;
+	int highest_priority = 0;
+	thread_node* ptr = scheduler->running_queue;
+	while (ptr != NULL) {
+		ptr->thread->priority += 1;
+		if (ptr->thread->priority > highest_priority) {
+			next_pthread = ptr;
+		}
+		ptr = ptr->next;
+	}
+	return next_pthread;
+}s
+
+//Swaps contexts between the current thread and the thread with the highest priority
+int swap_contexts() {
+	scheduler->current_thread->priority_level = 1;
+	thread_node* next_pthread = select_next_pthread;
+	swapcontext(&(next_pthread->thread->context), &(scheduler->current_thread->context);
+	scheduler->current_thread = next_pthread->thread;
+	return 0;
+}
 
 // The signal handler that handles the signal when the itimer reaches 0
 int execute() {
 //	If the priority level is 1, then it only runs for 25 ms before switching
-	if (scheduler->current_thread.priority_level == 1) {
-		scheduler->current_thread.priority_level = 2;
+	if (scheduler->current_thread->priority_level == 1) {
+		scheduler->current_thread->priority_level = 2;
 		//Swap contexts
+		swap_contexts();
 //	If the priority level is 2, then it runs for 50 ms before switching
-	} else if (scheduler->current_thread.priority_level == 2) {
+	} else if (scheduler->current_thread->priority_level == 2) {
 		if (execution_time == 0) {
 			execution_time += 1;
+			//Let it continue running
 		} else {
 			execution_time = 0;
-			scheduler->current_thread.priority_level = 3;
-			//Swap contexts
+			scheduler->current_thread->priority_level = 3;
+			//swap contexts
+			swap_contexts();
 		}
 //	If the priority level is 3, then it runs until it finishes
 	} else {
@@ -110,9 +156,9 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 	//Wait for the other thread to finish executing
 	finished_executing = 0;
 	while (finished_executing == 0) {
-		my_pthread* ptr = scheduler.running_queue;
+		my_pthread* ptr = scheduler->running_queue;
 		while (ptr->next != NULL) {
-			if (ptr->thread.pid == thread) {
+			if (ptr->thread->pid == thread) {
 				my_pthread_exit(NULL);
 			}
 		}
@@ -141,7 +187,7 @@ int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
 
 /* release the mutex lock */
 int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex) {
-	if (scheduler->current_thread == mutex->mutex_lock->pid) {
+	if (scheduler->current_thread->pid == mutex->mutex_lock->pid) {
 		mutex->mutex_lock->value = 0;
 		mutex->pid = -1;
 	}

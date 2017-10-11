@@ -25,14 +25,14 @@ tcb* scheduler = malloc(sizeof(tcb));
 typedef uint my_pthread_t;
 
 typedef struct thread_node {
-	my_pthread thread;
+	my_pthread* thread;
 	struct thread_node* next;
 } thread_node;
 
 typedef struct threadControlBlock {
 	thread_node* running_queue;
 	thread_node* waiting_queue;
-	my_pthread_t current_thread;
+	my_pthread* current_thread;
 } tcb; 
 
 typedef struct my_pthread {
