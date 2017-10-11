@@ -50,24 +50,32 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		
 	}
 	
-	add_to_running_queue(new_thread);
+	add_to_queue(1, new_thread);
 	
 	return 0;
 };
 
-int add_to_running_queue(thread_node* node) {
-	
-//	Iterate through the running queue and stop when we reach a NULL value		
-	if (scheduler->running_queue == NULL) {
-		scheduler->running_queue = new_thread;
-	} else {
-		thread_node* ptr = scheduler->running_queue;
-	
-		while (ptr != NULL) {
-			ptr = ptr->next;
+//A function to add a given thread node to the end of either the running or waiting queue
+int add_to_queue(int is_run_queue, thread_node* node) {
+	if (is_run_queue == 1) {
+		if (scheduler->running_queue == NULL) {
+			scheduler->running_queue = node;
+			return 0;
 		}
-		
+		thread_node* ptr = scheduler->running_queue;
+	} else {
+		if (scheduler->waiting_queue == NULL) {
+			scheduler->waiting_queue = node;
+			return 0;
+		}
+		thread_node* ptr = scheduler->waiting_queue;
 	}
+//	Iterate through the queue and stop when we reach a NULL value	
+	while (ptr->next != NULL) {
+		ptr = ptr->next;
+	}
+	ptr->next = node;
+	return 0;
 }
 
 //Returns the pthread with the highest priority after increasing the priorities of every pthread
@@ -175,12 +183,18 @@ int my_pthread_mutex_init(my_pthread_mutex_t *mutex, const pthread_mutexattr_t *
 
 /* aquire the mutex lock */
 int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
+	if (mutex->mutex_lock->value == 0) {
+		mutex->mutex_lock->value = 1;
+		mutex->pid = scheduler->current_thread;
+		return 0;
+	} 
+	add_to_queue(0, scheduler->current_thread);
 	while (1) {
 		if (mutex->mutex_lock->value == 0) {
 			mutex->mutex_lock->value = 1;
 			mutex->pid = scheduler->current_thread;
 			return 0;
-		}
+		} 
 	}
 	return 0;
 };
