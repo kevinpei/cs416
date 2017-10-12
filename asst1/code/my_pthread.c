@@ -50,20 +50,20 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		
 	}
 	
-	add_to_queue(1, new_thread);
+	add_to_queue(0, new_thread);
 	
 	return 0;
 };
 
-//A function to add a given thread node to the end of either the running or waiting queue
-int add_to_queue(int is_run_queue, thread_node* node) {
-	if (is_run_queue == 1) {
+//A function to add a given thread node to the end of either the running queue, the waiting queue, or the mutex locks queue
+int add_to_queue(int queue_type, thread_node* node) {
+	if (queue_type == 0) {
 		if (scheduler->running_queue == NULL) {
 			scheduler->running_queue = node;
 			return 0;
 		}
 		thread_node* ptr = scheduler->running_queue;
-	} else {
+	} else if (queue_type == 1) {
 		if (scheduler->waiting_queue == NULL) {
 			scheduler->waiting_queue = node;
 			return 0;
@@ -176,25 +176,17 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 
 /* initial the mutex lock */
 int my_pthread_mutex_init(my_pthread_mutex_t *mutex, const pthread_mutexattr_t *mutexattr) {
-	mutex->mutex_lock = malloc(sizeof(lock));
-	mutex->mutex_lock->value = 0;
+	mutex->mutex_lock = 0;
 	return 0;
 };
 
 /* aquire the mutex lock */
 int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
-	if (mutex->mutex_lock->value == 0) {
-		mutex->mutex_lock->value = 1;
+	if (mutex->mutex_lock == 0) {
+		mutex->mutex_lock = 1;
 		mutex->pid = scheduler->current_thread;
-		return 0;
-	} 
-	add_to_queue(0, scheduler->current_thread);
-	while (1) {
-		if (mutex->mutex_lock->value == 0) {
-			mutex->mutex_lock->value = 1;
-			mutex->pid = scheduler->current_thread;
-			return 0;
-		} 
+	} else {
+		add_to_queue(1, scheduler->current_thread);
 	}
 	return 0;
 };
