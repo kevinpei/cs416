@@ -29,6 +29,12 @@ typedef struct thread_node {
 	struct thread_node* next;
 } thread_node;
 
+typedef struct waiting_queue_node {
+	my_pthread* thread;
+	my_pthread_mutex_t* mutex_lock;
+	struct waiting_queue_node* next;
+} waiting_queue_node;
+
 typedef struct threadControlBlock {
 	thread_node* running_queue;
 	thread_node* waiting_queue;

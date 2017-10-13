@@ -50,26 +50,33 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		
 	}
 	
-	add_to_queue(0, new_thread);
+	add_to_run_queue(0, new_thread);
 	
 	return 0;
 };
 
-//A function to add a given thread node to the end of either the running queue, the waiting queue, or the mutex locks queue
-int add_to_queue(int queue_type, thread_node* node) {
-	if (queue_type == 0) {
-		if (scheduler->running_queue == NULL) {
-			scheduler->running_queue = node;
-			return 0;
-		}
-		thread_node* ptr = scheduler->running_queue;
-	} else if (queue_type == 1) {
-		if (scheduler->waiting_queue == NULL) {
-			scheduler->waiting_queue = node;
-			return 0;
-		}
-		thread_node* ptr = scheduler->waiting_queue;
+//A function to add a given thread node to the end of the running queue
+int add_to_run_queue(thread_node* node) {
+	if (scheduler->running_queue == NULL) {
+		scheduler->running_queue = node;
+		return 0;
 	}
+	thread_node* ptr = scheduler->running_queue;
+//	Iterate through the queue and stop when we reach a NULL value	
+	while (ptr->next != NULL) {
+		ptr = ptr->next;
+	}
+	ptr->next = node;
+	return 0;
+}
+
+//A function to add a given thread node to the end of the waiting queue
+int add_to_wait_queue(waiting_queue_node* node) {
+	if (scheduler->waiting_queue == NULL) {
+		scheduler->waiting_queue = node;
+		return 0;
+	}
+	waiting_queue_node* ptr = scheduler->waiting_queue;
 //	Iterate through the queue and stop when we reach a NULL value	
 	while (ptr->next != NULL) {
 		ptr = ptr->next;
@@ -186,7 +193,22 @@ int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
 		mutex->mutex_lock = 1;
 		mutex->pid = scheduler->current_thread;
 	} else {
-		add_to_queue(1, scheduler->current_thread);
+		waiting_queue_node* new_node = malloc(sizeof(waiting_queue_node));
+		thread_node* ptr = scheduler->running_queue;
+		thread_node* prev = NULL;
+		while (ptr->thread->pid != scheduler->current_thread) {
+			prev = ptr;
+			ptr = ptr->next;
+		}
+		if (prev != NULL) {
+			prev->next = ptr->next;
+		} else {
+			scheduler->waiting_queue = ptr->next;
+		}
+		waiting_queue_node* new_node = malloc(sizeof(waiting_queue_node));
+		new_node->thread = ptr->thread;
+		new_node->mutex_lock = mutex;
+		add_to_wait_queue(new_node);
 	}
 	return 0;
 };
