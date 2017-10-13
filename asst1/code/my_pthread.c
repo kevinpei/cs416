@@ -51,7 +51,7 @@ int swap_contexts() {
 		thread_node* next_pthread = scheduler->running_queue->next;
 //		If there is a next thread, then swap to it; otherwise, do nothing
 		if (next_pthread != NULL) {
-			swapcontext(&(next_pthread->thread->context), &(scheduler->running->queue->thread->context);
+			swapcontext(&(next_pthread->thread->context), &(scheduler->running_queue->thread->context));
 		}
 	}
 	return 0;
@@ -65,12 +65,12 @@ int execute() {
 	}
 	scheduler_running = 1;
 //	If the priority level is 1, then it only runs for 25 ms before switching
-	if (scheduler->current_thread->priority_level == 1) {
-		scheduler->current_thread->priority_level = 2;
+	if (scheduler->running_queue->thread->priority_level == 1) {
+		scheduler->running_queue->thread->priority_level = 2;
 		//Swap contexts
 		swap_contexts();
 //	If the priority level is 2, then it runs for 50 ms before switching
-	} else if (scheduler->current_thread->priority_level == 2) {
+	} else if (scheduler->running_queue->thread->priority_level == 2) {
 //		Let it continue running
 		if (execution_time == 0) {
 			execution_time += 1;
@@ -124,8 +124,12 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 //		Set the signal handler to be the execute function
 		signal (SIGALRM, execute);
 	}
+//	If the scheduler hasn't been initialized yet, initialize it
+	if (scheduler == NULL) {
+		scheduler = malloc(sizeof(tcb));
+	}
 //	Add the thread to the end of the run queue. Priority is based on position in the queue.
-	add_to_run_queue(0, new_thread);
+	add_to_run_queue(new_thread);
 //	Scheduler isn't running anymore.
 	scheduler_running = 0;
 	return 0;
@@ -150,13 +154,11 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 	my_pthread_yield();
 	
 	//Wait for the other thread to finish executing
-	finished_executing = 0;
+	int finished_executing = 0;
 	while (finished_executing == 0) {
-		my_pthread* ptr = scheduler->running_queue;
-		while (ptr->next != NULL) {
-			if (ptr->thread->pid == thread) {
-				my_pthread_exit(NULL);
-			}
+		if (scheduler->running_queue->thread->pid == thread) {
+			my_pthread_exit(*value_ptr);
+			return 0;
 		}
 	}
 	scheduler_running = 0;
@@ -185,7 +187,7 @@ int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
 //	If the mutex is unlocked, then acquire it
 	if (mutex->mutex_lock == 0) {
 		mutex->mutex_lock = 1;
-		mutex->pid = scheduler->current_thread;
+		mutex->pid = scheduler->running_queue->thread->pid;
 //	Otherwise, move to the wait queue
 	} else {
 		waiting_queue_node* new_node = malloc(sizeof(waiting_queue_node));
@@ -217,7 +219,7 @@ int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex) {
 		mutex->pid = -1;
 //		Remove all nodes from the wait queue that were waiting for this mutex
 		waiting_queue_node* ptr = scheduler->waiting_queue;
-		waiting_queue node* prev = NULL;
+		waiting_queue_node* prev = NULL;
 		while (ptr != NULL) {
 			if (ptr->mutex_lock == mutex->mid) {
 				if (prev == NULL) {
