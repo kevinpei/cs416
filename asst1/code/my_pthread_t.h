@@ -22,6 +22,7 @@
 
 tcb* scheduler = malloc(sizeof(tcb));
 int scheduler_running = 0;
+int execution_time = 0;
 uint mutex_id;
 
 typedef uint my_pthread_t;
@@ -40,12 +41,10 @@ typedef struct waiting_queue_node {
 typedef struct threadControlBlock {
 	thread_node* running_queue;
 	waiting_queue_node* waiting_queue;
-	my_pthread* current_thread;
 } tcb; 
 
 typedef struct my_pthread {
 	ucontext_t context;
-	int priority;
 	int priority_level;
 	int execution_time;
 	uint pid;
