@@ -21,6 +21,8 @@
 #include <signal.h>
 
 tcb* scheduler = malloc(sizeof(tcb));
+int scheduler_running = 0;
+uint mutex_id;
 
 typedef uint my_pthread_t;
 
@@ -31,15 +33,14 @@ typedef struct thread_node {
 
 typedef struct waiting_queue_node {
 	my_pthread* thread;
-	my_pthread_mutex_t* mutex_lock;
+	uint mutex_lock;
 	struct waiting_queue_node* next;
 } waiting_queue_node;
 
 typedef struct threadControlBlock {
 	thread_node* running_queue;
-	thread_node* waiting_queue;
+	waiting_queue_node* waiting_queue;
 	my_pthread* current_thread;
-	my_pthread_mutex* locks;
 } tcb; 
 
 typedef struct my_pthread {
@@ -54,7 +55,7 @@ typedef struct my_pthread {
 typedef struct my_pthread_mutex_t {
 	uint pid;
 	int mutex_lock;
-	uint* waiting_processes;
+	uint mid;
 } my_pthread_mutex_t;
 
 /* define your data structures here: */

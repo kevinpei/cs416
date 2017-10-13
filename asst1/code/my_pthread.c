@@ -10,7 +10,7 @@
 
 /* create a new thread */
 int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg) {
-	
+	scheduler_running = 1;
 //	Malloc some space and create a new thread
 	thread_node* new_thread = malloc(sizeof(thread_node));
 	new_thread->thread = malloc(sizeof(my_pthread));
@@ -46,12 +46,9 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	if (scheduler->current_thread == NULL) {
 		scheduler->current_thread = malloc(sizeof(my_pthread));
 		scheduler->current_thread = new_thread->thread;
-	} else {
-		
 	}
-	
 	add_to_run_queue(0, new_thread);
-	
+	scheduler_running = 0;
 	return 0;
 };
 
@@ -102,7 +99,13 @@ thread_node* select_next_pthread() {
 
 //Swaps contexts between the current thread and the thread with the highest priority
 int swap_contexts() {
-	scheduler->current_thread->priority_level = 1;
+	thread_node* ptr = scheduler->running_queue;
+	while (ptr != NULL) {
+		if (ptr->thread->pid == scheduler->current_thread->pid) {
+			ptr->thread->priority = 1;
+			break;
+		}
+	}
 	thread_node* next_pthread = select_next_pthread;
 	swapcontext(&(next_pthread->thread->context), &(scheduler->current_thread->context);
 	scheduler->current_thread = next_pthread->thread;
@@ -111,6 +114,9 @@ int swap_contexts() {
 
 // The signal handler that handles the signal when the itimer reaches 0
 int execute() {
+	if (scheduler_running == 1) {
+		return 0;
+	}
 //	If the priority level is 1, then it only runs for 25 ms before switching
 	if (scheduler->current_thread->priority_level == 1) {
 		scheduler->current_thread->priority_level = 2;
@@ -128,9 +134,6 @@ int execute() {
 			swap_contexts();
 		}
 //	If the priority level is 3, then it runs until it finishes
-	} else {
-		//Keep running until it finishes
-	}
 	return 0;
 }
 
@@ -138,7 +141,9 @@ int execute() {
 int my_pthread_yield() {
 	//Get current_thread ID because you can only yield if you're the currently running thread
 	//Move from the running queue to the waiting queue
-	
+	scheduler_running = 1;
+	swap_contexts()
+	scheduler_running = 0;
 	return 0;
 };
 
@@ -166,6 +171,7 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 	*/
 	
 	//Remove from the running queue
+	scheduler_running = 1;
 	my_pthread_yield();
 	
 	//Wait for the other thread to finish executing
@@ -178,17 +184,23 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 			}
 		}
 	}
+	scheduler_running = 0;
 	return 0;
 };
 
 /* initial the mutex lock */
 int my_pthread_mutex_init(my_pthread_mutex_t *mutex, const pthread_mutexattr_t *mutexattr) {
+	scheduler_running = 1;
 	mutex->mutex_lock = 0;
+	mutex->mid = mutex_id;
+	mutex_id++;
+	scheduler_running = 0;
 	return 0;
 };
 
 /* aquire the mutex lock */
 int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
+	scheduler_running = 1;
 	if (mutex->mutex_lock == 0) {
 		mutex->mutex_lock = 1;
 		mutex->pid = scheduler->current_thread;
@@ -196,7 +208,7 @@ int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
 		waiting_queue_node* new_node = malloc(sizeof(waiting_queue_node));
 		thread_node* ptr = scheduler->running_queue;
 		thread_node* prev = NULL;
-		while (ptr->thread->pid != scheduler->current_thread) {
+		while (ptr->thread->pid != scheduler->current_thread->pid) {
 			prev = ptr;
 			ptr = ptr->next;
 		}
@@ -207,26 +219,48 @@ int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
 		}
 		waiting_queue_node* new_node = malloc(sizeof(waiting_queue_node));
 		new_node->thread = ptr->thread;
-		new_node->mutex_lock = mutex;
+		new_node->mutex_lock = mutex->mid;
 		add_to_wait_queue(new_node);
+		my_pthread_yield();
 	}
+	scheduler_running = 0;
 	return 0;
 };
 
 /* release the mutex lock */
 int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex) {
-	if (scheduler->current_thread->pid == mutex->mutex_lock->pid) {
+	scheduler_running = 1;
+	if (scheduler->current_thread->pid == mutex->pid) {
 		mutex->mutex_lock->value = 0;
 		mutex->pid = -1;
+		waiting_queue_node* ptr = scheduler->waiting_queue;
+		waiting_queue node* prev = NULL;
+		while (ptr != NULL) {
+			if (ptr->mutex_lock == mutex->mid) {
+				if (prev == NULL) {
+					scheduler->waiting_queue = ptr->next;
+				} else {
+					prev->next = ptr;
+				}
+				thread_node* new_node = malloc(sizeof(thread_node));
+				new_node->thread = ptr->thread;
+				add_to_run_queue(new_node);
+			}
+			prev = ptr;
+			ptr = ptr->next;
+		}
 	}
+	scheduler_running = 0;
 	return 0;
 };
 
 /* destroy the mutex */
 int my_pthread_mutex_destroy(my_pthread_mutex_t *mutex) {
+	scheduler_running = 1;
 	while (1) {
-		if (mutex->mutex_lock->value == 0) {
-			free(mutex->mutex_lock);
+		if (mutex->mutex_lock == 0) {
+			free(mutex);
+			scheduler_running = 0;
 			return 0;
 		}
 	}
