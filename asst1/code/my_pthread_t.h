@@ -23,38 +23,45 @@
 tcb* scheduler = malloc(sizeof(tcb));
 int scheduler_running = 0;
 int execution_time = 0;
-uint mutex_id;
+uint mutex_id = 0;
 
 typedef uint my_pthread_t;
 
 typedef struct thread_node {
-	my_pthread* thread;
-	struct thread_node* next;
+    my_pthread* thread;
+    struct thread_node* next;
 } thread_node;
 
-typedef struct waiting_queue_node {
-	my_pthread* thread;
-	uint mutex_lock;
-	struct waiting_queue_node* next;
-} waiting_queue_node;
+typedef struct waiting_mutex_queue_node_ {
+    my_pthread *thread;
+    uint mutex_lock;
+    struct waiting_mutex_queue_node_ *next;
+} waiting_mutex_queue_node;
+
+typedef struct waiting_thread_queue_node_
+{
+    my_pthread *thread;
+    my_pthread_t pid;
+    struct waiting_thread_queue_node_ *next;
+} waiting_thread_queue_node;
 
 typedef struct threadControlBlock {
-	thread_node* running_queue;
-	waiting_queue_node* waiting_queue;
+    thread_node* running_queue;
+    waiting_queue_node* waiting_queue;
 } tcb; 
 
 typedef struct my_pthread {
-	ucontext_t context;
-	int priority_level;
-	int execution_time;
-	uint pid;
+    ucontext_t context;
+    int priority_level;
+    int execution_time;
+    my_pthread_t pid;
 } my_pthread;
 
 /* mutex struct definition */
 typedef struct my_pthread_mutex_t {
-	uint pid;
-	int mutex_lock;
-	uint mid;
+    uint pid; // thread id of owner
+    int mutex_lock; // lock or unlock
+    uint mid; // mutex id
 } my_pthread_mutex_t;
 
 /* define your data structures here: */
