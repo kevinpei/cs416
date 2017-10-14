@@ -23,15 +23,15 @@
 typedef uint my_pthread_t;
 
 typedef struct my_pthread {
-	ucontext_t context;
-	int priority;
-	int execution_time;
-	uint pid;
+    ucontext_t context;
+    int priority;
+    int execution_time;
+    my_pthread_t pid;
 } my_pthread;
 
 typedef struct thread_node {
-	my_pthread* thread;
-	struct thread_node* next;
+    my_pthread* thread;
+    struct thread_node* next;
 } thread_node;
 
 typedef struct waiting_mutex_queue_node_ {
@@ -49,21 +49,21 @@ typedef struct waiting_thread_queue_node_
 
 typedef struct threadControlBlock {
 //	The first run queue is round robin with a time quantum of 25 ms
-	thread_node* first_running_queue;
+    thread_node* first_running_queue;
 //	The second run queue is round robin with a time quantum of 50 ms
-	thread_node* second_running_queue;
+    thread_node* second_running_queue;
 //	The third run queue is FIFO
-	thread_node* third_running_queue;
+    thread_node* third_running_queue;
 //	Stores which queue is currently running
-	int current_queue_number;
-	waiting_queue_node* waiting_queue;
+    int current_queue_number;
+    waiting_queue_node* waiting_queue;
 } tcb; 
 
 /* mutex struct definition */
 typedef struct my_pthread_mutex_t {
-	uint pid;
-	int mutex_lock;
-	uint mid;
+    my_pthread_t pid;
+    int mutex_lock;
+    uint mid;
 } my_pthread_mutex_t;
 
 /* define your data structures here: */
