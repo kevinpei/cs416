@@ -182,9 +182,9 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	
 //	Make a new context. We assume the function has 0 arguments.
 	makecontext(&(new_thread->thread->context), function, 0);
-//	Initiate the thread to have priority level 1, where it runs for 25 ms.
+//	Initiate the thread to have priority 100, default for threads in priority level 1.
 	new_thread->thread->priority = 100;
-//	Create a new timer and set an alarm for every 25 ms
+//	If there's no timer, create a new timer and set an alarm for every 25 ms
 	if (timer == NULL) {
 		timer = malloc(sizeof(struct itimerval));
 		timer->it_interval.tv_usec = 25000;
@@ -196,17 +196,14 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	if (scheduler == NULL) {
 		scheduler = malloc(sizeof(tcb));
 	}
-//	Add the thread to the end of the first run queue. Priority is based on position in the queue.
+//	Add the thread to the end of the first run queue. 
 	add_to_run_queue(1, new_thread);
 	return 0;
 };
 
 /* give CPU pocession to other user level threads voluntarily */
 int my_pthread_yield() {
-	scheduler_running = 1;
 	swap_contexts();
-	timer->it_value.tv_usec = 25000;
-	scheduler_running = 0;
 	return 0;
 }
 
@@ -217,19 +214,7 @@ void my_pthread_exit(void *value_ptr) {
 
 /* wait for thread termination */
 int my_pthread_join(my_pthread_t thread, void **value_ptr) {
-	scheduler_running = 1;
-	my_pthread_yield();
-	
-	//Wait for the other thread to finish executing
-	int finished_executing = 0;
-	while (finished_executing == 0) {
-		if (scheduler->running_queue->thread->pid == thread) {
-			my_pthread_exit(*value_ptr);
-			return 0;
-		}
-	}
-	timer->it_value.tv_usec = 25000;
-	scheduler_running = 0;
+
 	return 0;
 };
 
