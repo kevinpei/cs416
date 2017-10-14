@@ -46,7 +46,7 @@ typedef struct threadControlBlock {
 //	The second run queue is round robin with a time quantum of 50 ms
 	thread_node* second_running_queue;
 //	The third run queue is FIFO
-	thread_node* third_running_queue
+	thread_node* third_running_queue;
 //	Stores which queue is currently running
 	int current_queue_number;
 	waiting_queue_node* waiting_queue;
@@ -65,7 +65,6 @@ struct itimerval* timer;
 int scheduler_running = 0;
 int execution_time = 0;
 uint mutex_id = 0;
-current_queue_number = 1;
 // Feel free to add your own auxiliary data structures
 
 

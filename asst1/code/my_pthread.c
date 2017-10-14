@@ -154,7 +154,7 @@ int swap_contexts() {
 //		If none of the above, then something went wrong.
 		scheduler_running = 0;
 		default: return -1;
-	}'
+	}
 	scheduler_running = 0;
 	return 0;
 }
