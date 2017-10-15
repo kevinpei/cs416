@@ -11,6 +11,10 @@
 
 //A function to add a given thread node to the end of the given running queue
 int add_to_run_queue(int num, thread_node* node) {
+//	If the queue is already being modified, wait for the operation to finish, then continue
+	while (__sync_lock_test_and_set(&modifying_queue, 1) == 1) {
+		int placeholder = 0;
+    }
 //	If there are no running threads in the given run queue, make the thread the beginning of the queue
 	thread_node* ptr;
 	if (num == 1) {
@@ -40,29 +44,59 @@ int add_to_run_queue(int num, thread_node* node) {
 	}
 //	Add the thread to the end of the run queue.
 	ptr->next = node;
+	__sync_lock_release(&modifying_queue);
 	return 0;
 }
 
-//A function to add a given thread node to the end of the waiting queue
-int add_to_wait_queue(waiting_queue_node* node) {
-//	If the wait queue is empty, then set the wait queue to be the thread
-	if (scheduler->waiting_queue == NULL) {
-		scheduler->waiting_queue = node;
+//A function to get the currently running thread.
+thread_node* get_current_thread() {
+//	Based on the current queue number, return the first thread from that queue
+	if (scheduler->current_queue_number == 1) {
+		return scheduler->first_running_queue;
+	} else if (scheduler->current_queue->number == 2) {
+		return scheduler->second_running_queue;
+	}  else {
+		return scheduler->third_running_queue;
+	}
+}
+
+int add_to_mutex_wait_queue(mutex_waiting_queue_node* node) {
+//	If the mutex wait queue is empty, then set the wait queue to be the thread
+	if (scheduler->mutex_waiting_queue == NULL) {
+		scheduler->mutex_waiting_queue = node;
 		return 0;
 	}
-	waiting_queue_node* ptr = scheduler->waiting_queue;
+	mutex_waiting_queue_node* ptr = scheduler->mutex_waiting_queue;
 //	Iterate through the queue and stop when we reach a NULL value	
 	while (ptr->next != NULL) {
 		ptr = ptr->next;
 	}
-//	Add the node to the end of the wait queue
+//	Add the node to the end of the mutex wait queue
 	ptr->next = node;
-	return 0;
+}
+
+int add_to_join_wait_queue(join_waiting_queue_node* node) {
+//	If the join wait queue is empty, then set the wait queue to be the thread
+	if (scheduler->join_waiting_queue == NULL) {
+		scheduler->join_waiting_queue = node;
+		return 0;
+	}
+	join_waiting_queue_node* ptr = scheduler->join_waiting_queue;
+//	Iterate through the queue and stop when we reach a NULL value	
+	while (ptr->next != NULL) {
+		ptr = ptr->next;
+	}
+//	Add the node to the end of the join wait queue
+	ptr->next = node;
 }
 
 //A function to return the queue number with the highest priority
 //If there is a tie, then the higher priority queue (e.g. first over second) is run
 int get_highest_priority() {
+//	If the queue is already being modified, wait for the operation to finish, then continue
+	while (__sync_lock_test_and_set(&modifying_queue, 1) == 1) {
+		int placeholder = 0;
+    }
 //	If no queue has any elements, return 0
 	int highest_priority = 0;
 	int highest_priority_queue = 0;
@@ -86,22 +120,21 @@ int get_highest_priority() {
 		}
 	}
 //	Return the highest priority queue number
+	__sync_lock_release(&modifying_queue);
 	return highest_priority_queue;
 }
 
 //Swaps contexts between the current thread and the thread with the highest priority
 int swap_contexts() {
 //	If the scheduler is already running, don't do anything
-	if (scheduler_running == 1) {
-		return 0;
-	}
-	scheduler_running = 1;
+	if (__sync_lock_test_and_set(&scheduler_running, 1) == 1) {
+        return 0;
+    }
 //	If another function is modifying the queue, wait for it to finish before working
-	if (modifying_queue == 1) {
-		timer->it_interval.tv_usec = 1000;
-		return 0;
-	}
-	modifying_queue = 1;
+	if (__sync_lock_test_and_set(&modifying_queue, 1) == 1) {
+        timer->it_interval.tv_usec = 1000;
+        return 0;
+    }
 	thread_node* ptr;
 //	Depending on which run queue was running, change the priority of the current thread
 	switch(scheduler->current_queue_number) {
@@ -126,36 +159,47 @@ int swap_contexts() {
 		break;
 //		If none of the above, then something went wrong.
 		default: 
-		scheduler_running = 0;
+		__sync_lock_release(&scheduler_running);
+		__sync_lock_release(&modifying_queue);
 		return -1;
 	}
 //	Depending on which queue has the highest first priority, switch the context to run that thread
 	switch (get_highest_priority()) {
 //		If there are no more threads, then do nothing.
 		case 0:
+		__sync_lock_release(&scheduler_running);
+		__sync_lock_release(&modifying_queue);
 		return 0;
 //		If the first queue has the highest priority thread, switch to that one.
 		case 1:
 		scheduler->current_queue_number = 1;
 		timer->it_interval.tv_usec = 25000;
+		__sync_lock_release(&scheduler_running);
+		__sync_lock_release(&modifying_queue);
 		swapcontext(&(ptr->thread->context), &(scheduler->first_running_queue->thread->context));
 		break;
 //		If the second queue has the highest priority thread, switch to that one.
 		case 2:
 		scheduler->current_queue_number = 2;
 		timer->it_interval.tv_usec = 50000;
+		__sync_lock_release(&scheduler_running);
+		__sync_lock_release(&modifying_queue);
 		swapcontext(&(ptr->thread->context), &(scheduler->second_running_queue->thread->context));
 		break;
 //		If the third queue has the highest priority thread, switch to that one.
 		case 3:
 		scheduler->current_queue_number = 3;
+		__sync_lock_release(&scheduler_running);
+		__sync_lock_release(&modifying_queue);
 		swapcontext(&(ptr->thread->context), &(scheduler->third_running_queue->thread->context));
 		break;
 //		If none of the above, then something went wrong.
-		scheduler_running = 0;
+		__sync_lock_release(&scheduler_running);
+		__sync_lock_release(&modifying_queue);
 		default: return -1;
 	}
-	scheduler_running = 0;
+		__sync_lock_release(&scheduler_running);
+		__sync_lock_release(&modifying_queue);
 	return 0;
 }
 
@@ -203,105 +247,143 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 
 /* give CPU pocession to other user level threads voluntarily */
 int my_pthread_yield() {
-	swap_contexts();
-	return 0;
+    swap_contexts();
+    return -1;
 }
 
 /* terminate a thread */
 void my_pthread_exit(void *value_ptr) {
-	//Same as yield, except end the thread
+    //Same as yield, except end the thread
+    thread_node* current_thread = get_current_thread();
+	switch(scheduler->current_queue_number) {
+		case 1:
+		scheduler->first_running_queue = current_thread->next;
+		break;
+		case 2:
+		scheduler->second_running_queue = current_thread->next;
+		break;
+		case 3:
+		scheduler->third_running_queue = current_thread->next;
+		break;
+	}
+    // set flag to indicate pthread exit
+    // save return value somewhere
+    my_pthread_yield();
 };
 
 /* wait for thread termination */
 int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 
-	return 0;
+	thread_node* current_thread = get_current_thread();
+	switch(scheduler->current_queue_number) {
+		case 1:
+		scheduler->first_running_queue = current_thread->next;
+		break;
+		case 2:
+		scheduler->second_running_queue = current_thread->next;
+		break;
+		case 3:
+		scheduler->third_running_queue = current_thread->next;
+		break;
+	}
+	join_waiting_queue_node* node = malloc(sizeof(join_waiting_queue_node));
+	node->thread = current_thread->thread;
+	node->pid = thread;
+	add_to_join_wait_queue(node);
+
+    my_pthread_yield();
+	
+    //Wait for the other thread to finish executing
+    
+    return 0; 
 };
 
 /* initial the mutex lock */
 int my_pthread_mutex_init(my_pthread_mutex_t *mutex, const pthread_mutexattr_t *mutexattr) {
-	scheduler_running = 1;
+    mutex = malloc(sizeof(my_pthread_mutex_t));
 //	Set the initial lock to be open
-	mutex->mutex_lock = 0;
+    __sync_lock_release(&(mutex->mutex_lock));
 //	Set a new mutex id
-	mutex->mid = mutex_id;
-	mutex_id++;
-	scheduler_running = 0;
-	return 0;
+    mutex->mid = mutex_id;
+    mutex_id++;
+    return 0;
 };
 
 /* aquire the mutex lock */
 int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
-	scheduler_running = 1;
 //	All mutexes are initialized with positive id's - if it's negative, then it's been destroyed. 
-	if (mutex->mid < 0) {
-		return -1;
-	}
+    if (mutex->mid < 0) {
+        return -1;
+    }
 //	If the mutex is unlocked, then acquire it
-	if (mutex->mutex_lock == 0) {
-		mutex->mutex_lock = 1;
-		mutex->pid = scheduler->running_queue->thread->pid;
+    if (__sync_lock_test_and_set(&(mutex->mutex_lock), 1) == 0) {
+        mutex->pid = get_current_thread()->thread->pid;
 //	Otherwise, move to the wait queue
-	} else {
-		waiting_queue_node* new_node = malloc(sizeof(waiting_queue_node));
-//		Create a new node with a thread equal to the currently running thread
-		new_node->thread = scheduler->running_queue->thread;
+    } else {
+        mutex_waiting_queue_node *new_node = malloc(sizeof(mutex_waiting_queue_node));
 //		Remove the current thread from the run queue
-		scheduler->running_queue = scheduler->running_queue->next;
+		thread_node* current_thread = get_current_thread();
+		switch(scheduler->current_queue_number) {
+			case 1:
+			scheduler->first_running_queue = current_thread->next;
+			break;
+			case 2:
+			scheduler->second_running_queue = current_thread->next;
+			break;
+			case 3:
+			scheduler->third_running_queue = current_thread->next;
+			break;
+		}
+//		Create a new node with a thread equal to the currently running thread
+        new_node->thread = current_thread->thread;
 //		Set the mutex id the thread is waiting for
-		new_node->mutex_lock = mutex->mid;
+        new_node->mutex_lock = mutex->mid;
 //		Add the thread to the end of the wait queue
-		add_to_wait_queue(new_node);
+        add_to_mutex_wait_queue(new_node);
 //		Swap contexts
-		swap_contexts();
-	}
-	scheduler_running = 0;
-	return 0;
+        swap_contexts();
+    }
+    return 0;
 };
 
 /* release the mutex lock */
 int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex) {
-	scheduler_running = 1;
 //	All mutexes are initialized with positive id's - if it's negative, then it's been destroyed. 
-	if (mutex->mid < 0) {
-		return -1;
-	}
+    if (mutex->mid < 0) {
+        return -1;
+    }
 //	If the current thread is holding the lock, then release it
-	if (scheduler->running_queue->thread->pid == mutex->pid) {
-		mutex->mutex_lock = 0;
-		mutex->pid = -1;
+    if (get_current_thread()->thread->pid == mutex->pid) {
+        __sync_lock_release(&(mutex->mutex_lock));
+        mutex->pid = -1;
 //		Remove all nodes from the wait queue that were waiting for this mutex
-		waiting_queue_node* ptr = scheduler->waiting_queue;
-		waiting_queue_node* prev = NULL;
-		while (ptr != NULL) {
-			if (ptr->mutex_lock == mutex->mid) {
-				if (prev == NULL) {
-					scheduler->waiting_queue = ptr->next;
-				} else {
-					prev->next = ptr;
-				}
+        mutex_waiting_queue_node* ptr = scheduler->mutex_waiting_queue;
+        mutex_waiting_queue_node* prev = NULL;
+        while (ptr != NULL) {
+            if (ptr->mutex_lock == mutex->mid) {
+                if (prev == NULL) {
+                    scheduler->mutex_waiting_queue = ptr->next;
+                } else {
+                    prev->next = ptr;
+                }
 //				Add any nodes that were removed from the wait queue to the end of the run queue
-				thread_node* new_node = malloc(sizeof(thread_node));
-				new_node->thread = ptr->thread;
-				add_to_run_queue(new_node);	
-			}
-			prev = ptr;
-			ptr = ptr->next;
-		}
-	}
-	scheduler_running = 0;
-	return 0;
+                thread_node* new_node = malloc(sizeof(thread_node));
+                new_node->thread = ptr->thread;
+                add_to_run_queue(new_node);	
+            }
+            prev = ptr;
+            ptr = ptr->next;
+        }
+    }
+    return 0;
 };
 
 /* destroy the mutex */
 int my_pthread_mutex_destroy(my_pthread_mutex_t *mutex) {
-	scheduler_running = 1;
 //	Wait for the mutex lock to be released before destroying it
-	if (mutex->mutex_lock == 0) {
+    if (__sync_lock_test_and_set(&(mutex->mutex_lock), 1) == 1) {
 //		Set the id to be negative. This means it's not usable.
-		mutex->mid = -1;
-	}
-	scheduler_running = 0;
-	return 0;
+        mutex->mid = -1;
+    }
+    return 0;
 };
-
