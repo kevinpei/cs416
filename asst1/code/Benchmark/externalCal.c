@@ -50,8 +50,10 @@ int main() {
 	mem = (int*)malloc(RAM_SIZE);
 
 	for (i = 0; i < THREAD_NUM; ++i) {
+		printf("iteration creating thread %d\n", i);
 		sprintf(name, "%d", i+1);
 		my_pthread_create(&thread[i], NULL, &external_calculate, name);
+		printf("finished creating\n");
 	}
 
 	for (i = 0; i < THREAD_NUM; ++i)

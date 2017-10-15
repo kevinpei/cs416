@@ -145,6 +145,7 @@ int age() {
 
 //Swaps contexts between the current thread and the thread with the highest priority
 int swap_contexts() {
+	printf("swap contexts\n");
 //	If the scheduler is already running, don't do anything
 	if (__sync_lock_test_and_set(&scheduler_running, 1) == 1) {
         return 0;
@@ -231,6 +232,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	thread_node* new_thread = malloc(sizeof(thread_node));
 	new_thread->thread = malloc(sizeof(my_pthread));
 	getcontext(&(new_thread->thread->context));
+	printf("Got context\n");
 	
 //	Set this linkt to be the swap contexts function
 	new_thread->thread->context.uc_link = 0;
@@ -247,11 +249,12 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	new_thread->thread->pid = *thread;
 	
 //	Make a new context. We assume the function has 0 arguments.
-	makecontext(&(new_thread->thread->context), function, 0);
+	makecontext(&(new_thread->thread->context), function, 1, arg);
 //	Initiate the thread to have priority 100, default for threads in priority level 1.
 	new_thread->thread->priority = 100;
 //	If there's no timer, create a new timer and set an alarm for every 25 ms
 	if (timer == NULL) {
+		printf("making a timer\n");
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
 		mutex_id = 0;
@@ -263,10 +266,12 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	}
 //	If the scheduler hasn't been initialized yet, initialize it
 	if (scheduler == NULL) {
+		printf("making a scheduler\n");
 		scheduler = malloc(sizeof(tcb));
 	}
 //	Add the thread to the end of the first run queue. 
 	add_to_run_queue(1, new_thread);
+	printf("Added to run queue\n");
 	return 0;
 };
 
