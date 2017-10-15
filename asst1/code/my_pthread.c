@@ -11,6 +11,7 @@
 //A function to add a given thread node to the end of the given running queue
 int add_to_run_queue(int num, thread_node* node) {
 //	If the queue is already being modified, wait for the operation to finish, then continue
+	printf("Lock value is %d\n", modifying_queue);
 	while (__sync_lock_test_and_set(&modifying_queue, 1) == 1) {
 		int placeholder = 0;
     }
@@ -19,6 +20,7 @@ int add_to_run_queue(int num, thread_node* node) {
 	if (num == 1) {
 		if (scheduler->first_running_queue == NULL) {
 			scheduler->first_running_queue = node;
+			__sync_lock_release(&modifying_queue);
 			return 0;
 		}
 		ptr = scheduler->first_running_queue;
@@ -26,6 +28,7 @@ int add_to_run_queue(int num, thread_node* node) {
 	if (num == 2) {
 		if (scheduler->second_running_queue == NULL) {
 			scheduler->second_running_queue = node;
+			__sync_lock_release(&modifying_queue);
 			return 0;
 		}
 		ptr = scheduler->second_running_queue;
@@ -33,6 +36,7 @@ int add_to_run_queue(int num, thread_node* node) {
 	if (num == 3) {
 		if (scheduler->third_running_queue == NULL) {
 			scheduler->third_running_queue = node;
+			__sync_lock_release(&modifying_queue);
 			return 0;
 		}
 		ptr = scheduler->third_running_queue;
@@ -72,6 +76,7 @@ int add_to_mutex_wait_queue(mutex_waiting_queue_node* node) {
 	}
 //	Add the node to the end of the mutex wait queue
 	ptr->next = node;
+	return 0;
 }
 
 int add_to_join_wait_queue(join_waiting_queue_node* node) {
@@ -87,6 +92,7 @@ int add_to_join_wait_queue(join_waiting_queue_node* node) {
 	}
 //	Add the node to the end of the join wait queue
 	ptr->next = node;
+	return 0;
 }
 
 //A function to return the queue number with the highest priority
@@ -250,6 +256,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	
 //	Make a new context. We assume the function has 0 arguments.
 	makecontext(&(new_thread->thread->context), function, 1, arg);
+	printf("Made a new context\n");
 //	Initiate the thread to have priority 100, default for threads in priority level 1.
 	new_thread->thread->priority = 100;
 //	If there's no timer, create a new timer and set an alarm for every 25 ms
@@ -270,6 +277,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		scheduler = malloc(sizeof(tcb));
 	}
 //	Add the thread to the end of the first run queue. 
+	printf("Adding to run queue\n");
 	add_to_run_queue(1, new_thread);
 	printf("Added to run queue\n");
 	return 0;
