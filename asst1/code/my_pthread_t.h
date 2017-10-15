@@ -38,13 +38,13 @@ typedef struct mutex_waiting_queue_node {
 	my_pthread* thread;
 	uint mutex_lock;
 	struct mutex_waiting_queue_node* next;
-} waiting_queue_node;
+} mutex_waiting_queue_node;
 
 typedef struct join_waiting_queue_node {
 	my_pthread* thread;
 	my_pthread_t pid;
 	struct join_waiting_queue_node* next;
-}
+} join_waiting_queue_node;
 
 typedef struct threadControlBlock {
 //	The first run queue is round robin with a time quantum of 25 ms
@@ -71,13 +71,34 @@ typedef struct my_pthread_mutex_t {
 /* define your data structures here: */
 tcb* scheduler;
 struct itimerval* timer;
-int scheduler_running = 0;
-int modifying_queue = 0;
-uint mutex_id = 0;
+int scheduler_running;
+int modifying_queue;
+uint mutex_id;
 // Feel free to add your own auxiliary data structures
 
 
 /* Function Declarations: */
+
+//Add the given node to the given thread queue with that number
+int add_to_run_queue(int num, thread_node* node);
+
+//Get the currently executing thread
+thread_node* get_current_thread();
+
+//Add the given node to the end of the mutex waiting queue
+int add_to_mutex_wait_queue(mutex_waiting_queue_node* node);
+
+//Add the given node tot he end of the join waiting queue
+int add_to_join_wait_queue(join_waiting_queue_node* node);
+
+//Get the queue number whose first thread is the one with the highest priority.
+int get_highest_priority();
+
+//A function to increase the priority of every thread in each run queue.
+int age();
+
+//A function to swap between contexts, increase priority, and remove nodes from the running queue.
+int swap_contexts();
 
 /* create a new thread */
 int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg);

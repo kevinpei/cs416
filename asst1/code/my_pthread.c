@@ -8,7 +8,6 @@
 
 #include "my_pthread_t.h"
 
-
 //A function to add a given thread node to the end of the given running queue
 int add_to_run_queue(int num, thread_node* node) {
 //	If the queue is already being modified, wait for the operation to finish, then continue
@@ -53,7 +52,7 @@ thread_node* get_current_thread() {
 //	Based on the current queue number, return the first thread from that queue
 	if (scheduler->current_queue_number == 1) {
 		return scheduler->first_running_queue;
-	} else if (scheduler->current_queue->number == 2) {
+	} else if (scheduler->current_queue_number == 2) {
 		return scheduler->second_running_queue;
 	}  else {
 		return scheduler->third_running_queue;
@@ -124,6 +123,26 @@ int get_highest_priority() {
 	return highest_priority_queue;
 }
 
+//Increases the priority of every thread in each running queue.
+int age() {
+	thread_node* ptr = scheduler->first_running_queue;
+	while (ptr != NULL) {
+		ptr->thread->priority += 1;
+		ptr = ptr->next;
+	}
+	ptr = scheduler->second_running_queue;
+	while (ptr != NULL) {
+		ptr->thread->priority += 1;
+		ptr = ptr->next;
+	}
+	ptr = scheduler->third_running_queue;
+	while (ptr != NULL) {
+		ptr->thread->priority += 1;
+		ptr = ptr->next;
+	}
+	return 0;
+}
+
 //Swaps contexts between the current thread and the thread with the highest priority
 int swap_contexts() {
 //	If the scheduler is already running, don't do anything
@@ -138,23 +157,26 @@ int swap_contexts() {
 	thread_node* ptr;
 //	Depending on which run queue was running, change the priority of the current thread
 	switch(scheduler->current_queue_number) {
-//		If a thread in the first run queue was running, move it to the second run queue and set its priority to 50.
+//		If a thread in the first run queue was running, age every other thread, then move it to the second run queue and set its priority to 50.
 		case 1: 
 		ptr = scheduler->first_running_queue;
 		scheduler->first_running_queue = ptr->next;
+		age();
 		ptr->thread->priority = 50;
 		add_to_run_queue(2, ptr);
 		break;
-//		If a thread in the second run queue was running, move it to the third run queue and set its priority to 0.
+//		If a thread in the second run queue was running, age every other thread, then move it to the third run queue and set its priority to 0.
 		case 2: 
 		ptr = scheduler->second_running_queue;
 		scheduler->second_running_queue = ptr->next;
+		age();
 		ptr->thread->priority = 0;
 		add_to_run_queue(3, ptr);
 		break;
 //		If a thread in the third run queue was running, then it must be finished, because all threads there run to completion.
 		case 3: 
 		ptr = scheduler->third_running_queue;
+		age();
 		scheduler->third_running_queue = ptr->next;
 		break;
 //		If none of the above, then something went wrong.
@@ -230,11 +252,14 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	new_thread->thread->priority = 100;
 //	If there's no timer, create a new timer and set an alarm for every 25 ms
 	if (timer == NULL) {
+		__sync_lock_release(&scheduler_running);
+		__sync_lock_release(&modifying_queue);
+		mutex_id = 0;
+//		Set the signal handler to be the execute function
+		signal (SIGVTALRM, swap_contexts);
 		timer = malloc(sizeof(struct itimerval));
 		timer->it_interval.tv_usec = 25000;
 		setitimer(ITIMER_VIRTUAL, timer, NULL);
-//		Set the signal handler to be the execute function
-		signal (SIGVTALRM, swap_contexts);
 	}
 //	If the scheduler hasn't been initialized yet, initialize it
 	if (scheduler == NULL) {
@@ -369,7 +394,7 @@ int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex) {
 //				Add any nodes that were removed from the wait queue to the end of the run queue
                 thread_node* new_node = malloc(sizeof(thread_node));
                 new_node->thread = ptr->thread;
-                add_to_run_queue(new_node);	
+                add_to_run_queue(1, new_node);	
             }
             prev = ptr;
             ptr = ptr->next;
