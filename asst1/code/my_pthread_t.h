@@ -27,6 +27,13 @@ typedef struct my_pthread {
     int priority;
     int execution_time;
     my_pthread_t pid;
+    void *ret_val; // for exit()
+    // indicate which function calls the scheduler
+    // 0 for yield()
+    // 1 for exit()
+    // 2 for join()
+    // 3 for mutex_lock()
+    int yield_purpose;
 } my_pthread;
 
 typedef struct thread_node {
@@ -44,6 +51,7 @@ typedef struct waiting_thread_queue_node_
 {
     my_pthread *thread;
     my_pthread_t pid;
+    void *ret_val_pos;
     struct waiting_thread_queue_node_ *next;
 } waiting_thread_queue_node;
 
@@ -56,8 +64,13 @@ typedef struct threadControlBlock {
     thread_node* third_running_queue;
 //	Stores which queue is currently running
     int current_queue_number;
-    waiting_queue_node* waiting_queue;
-} tcb; 
+//  pointer to current running queue
+    thread_node *current_running_queue;
+//  queue for threads waiting for another thread
+    waiting_thread_queue_node *waiting_thread_queue;
+//  queue for threads waiting for a mutex
+    waiting_mutex_queue_node *waiting_mutex_queue;
+} tcb;
 
 /* mutex struct definition */
 typedef struct my_pthread_mutex_t {
@@ -72,6 +85,7 @@ struct itimerval* timer;
 int scheduler_running = 0;
 int execution_time = 0;
 uint mutex_id = 0;
+int queue_lock = 0; // lock the queue, used in scheduler, exit(), join(), mutex_lock()
 // Feel free to add your own auxiliary data structures
 
 

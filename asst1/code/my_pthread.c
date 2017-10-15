@@ -162,6 +162,22 @@ int swap_contexts() {
     return 0;
 }
 
+/* help function for swap_contexts(), dealing with exit() and join*() */
+int yield_handler()
+{
+    switch (yield_purpose)
+    {
+    case 1: // pthread_exit()
+        
+        break;
+    case 2: // pthread_join()
+        break;
+    default:
+        return;
+    }
+
+}
+
 /* create a new thread */
 int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg) {
 //	Malloc some space and create a new thread
@@ -214,7 +230,7 @@ int my_pthread_yield() {
 void my_pthread_exit(void *value_ptr) {
     //Same as yield, except end the thread
     my_pthread_t pid = 0; // pid of current thread
-    thread_node *ptr = scheduler->running_queue;
+    thread_node *ptr = scheduler->current_running_queue;
     thread_node *prev = NULL;
     while (ptr->thread.pid != pid)
     {
@@ -222,28 +238,34 @@ void my_pthread_exit(void *value_ptr) {
         ptr = ptr->next;
     }
 
-    if (prev == NULL) // current thread is the only thread in running queue
+    if (prev == NULL) // current thread is the only thread in current running queue
     {
-        scheduler->running_queue = NULL;
+        scheduler->current_running_queue = NULL;
     }
     else
     {
         prev->next = ptr->next;
-        free(ptr);
     }
+    free(ptr);
     // set flag to indicate pthread exit
+    yield_purpose = 1;
     // save return value somewhere
     my_pthread_yield();
 };
 
 /* wait for thread termination */
 int my_pthread_join(my_pthread_t thread, void **value_ptr) {
-
+    // lock queue
+    if (__sync_lock_test_and_set(&queue_lock, 1) == 1)
+    {
+        return -1; // another thead locks the queue, should not happen
+    }
+    waiting_thread_queue_node *new_node = (waiting_thread_queue_node *) malloc(sizeof(waiting_thread_queue_node));
+    new_node->
+    // unlock queue mutex
     my_pthread_yield();
-	
     //Wait for the other thread to finish executing
-    
-    return 0; 
+    return 0;
 };
 
 /* initial the mutex lock */
@@ -259,26 +281,28 @@ int my_pthread_mutex_init(my_pthread_mutex_t *mutex, const pthread_mutexattr_t *
 
 /* aquire the mutex lock */
 int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
-//	All mutexes are initialized with positive id's - if it's negative, then it's been destroyed. 
+    /* if (__sync_lock_test_and_set(&queue_lock, 1) == 1) */
+    /* { */
+    /*     return -1; // queue is locked by other thread, should not happen */
+    /* } */
+//	All mutexes are initialized with positive id's - if it's negative, then it's been destroyed.
     if (mutex->mid < 0) {
         return -1;
     }
 //	If the mutex is unlocked, then acquire it
     if (__sync_lock_test_and_set(&(mutex->mutex_lock), 1) == 0) {
-        mutex->pid = scheduler->current_thread;
+        mutex->pid = scheduler->current_running_queue->thread->pid;
 //	Otherwise, move to the wait queue
     } else {
-        waiting_mutex_queue_node *new_node = malloc(sizeof(waiting_queue_node));
+        waiting_mutex_queue_node *new_node = malloc(sizeof(waiting_mutex_queue_node));
 //		Create a new node with a thread equal to the currently running thread
-        new_node->thread = scheduler->running_queue->thread;
-//		Remove the current thread from the run queue
-        scheduler->running_queue = scheduler->running_queue->next;
+        new_node->thread = scheduler->current_running_queue->thread;
 //		Set the mutex id the thread is waiting for
         new_node->mutex_lock = mutex->mid;
-//		Add the thread to the end of the wait queue
-        add_to_wait_queue(new_node);
-//		Swap contexts
-        swap_contexts();
+//    set flag and call scheduler
+        yield_purpose = 3;
+        /* __sync_lock_release(&queue_lock); */
+        my_pthread_yield();
     }
     return 0;
 };
