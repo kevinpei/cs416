@@ -234,14 +234,6 @@ int swap_contexts() {
 		return -1;
 	}
 //	Depending on which queue has the highest first priority, switch the context to run that thread
-
-
-//FIX THIS
-	ptr->thread->yield_purpose = 0;
-//FIX THIS
-
-
-
 	switch (get_highest_priority()) {
 //		If there are no more threads, then do nothing.
 		case 0:
@@ -378,13 +370,10 @@ int yield_handler(thread_node* ptr)
         break;
     }
     case 2: {
-        // join()
+        // join and mutex_lock()
+		ptr->thread->yield_purpose = 0;
         break;
-    }
-	case 3: {
-		//mutex_lock()
-		break;
-	} case 4: {
+	} case 3: {
 		//yield()
 		thread_node* current_running_queue;
 		switch(scheduler->current_queue_number) {
@@ -403,6 +392,7 @@ int yield_handler(thread_node* ptr)
 			current_running_queue->next = ptr;
 			ptr->next = ptr->next->next;
 		}
+		ptr->thread->yield_purpose = 0;
 	}
     default:
 	switch(scheduler->current_queue_number) {
@@ -518,27 +508,17 @@ int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
 //	Otherwise, move to the wait queue
     } else {
         mutex_waiting_queue_node *new_node = malloc(sizeof(mutex_waiting_queue_node));
-//		Remove the current thread from the run queue
 		thread_node* current_thread = get_current_thread();
-		switch(scheduler->current_queue_number) {
-			case 1:
-			scheduler->first_running_queue = current_thread->next;
-			break;
-			case 2:
-			scheduler->second_running_queue = current_thread->next;
-			break;
-			case 3:
-			scheduler->third_running_queue = current_thread->next;
-			break;
-		}
 //		Create a new node with a thread equal to the currently running thread
         new_node->thread = current_thread->thread;
+//		Set the yield purpose of the thread
+		current_thread->thread->yield_purpose = 2;
 //		Set the mutex id the thread is waiting for
         new_node->mutex_lock = mutex->mid;
 //		Add the thread to the end of the wait queue
         add_to_mutex_wait_queue(new_node);
 //		Swap contexts
-        swap_contexts();
+        my_pthread_yield();
     }
     return 0;
 };
