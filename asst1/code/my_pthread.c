@@ -461,7 +461,7 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
     join_waiting_queue_node *new_node = (join_waiting_queue_node *) malloc(sizeof(join_waiting_queue_node));
     new_node->thread = get_current_thread()->thread;
     new_node->pid = get_current_thread()->thread->pid;
-    &(new_node->ret_val_pos) = value_ptr;
+    value_ptr = &(new_node->ret_val_pos);
     // add to wait queue
     if (scheduler->join_waiting_queue == NULL)
     {
