@@ -70,7 +70,7 @@ typedef struct my_pthread_mutex_t {
 
 /* define your data structures here: */
 tcb* scheduler;
-struct itimerval* timer;
+struct itimerval timer;
 int scheduler_running;
 int modifying_queue;
 uint mutex_id;

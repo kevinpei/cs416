@@ -51,6 +51,44 @@ int add_to_run_queue(int num, thread_node* node) {
 	return 0;
 }
 
+//A function to add a given node to the first run queue based on its priority
+int add_to_run_queue_priority_based(thread_node* node) {
+	while (__sync_lock_test_and_set(&modifying_queue, 1) == 1) {
+		int placeholder = 0;
+    }
+	thread_node* ptr = scheduler->first_running_queue;
+	thread_node* prev = NULL;
+//	Iterate through the first run queue until you reach the end or a thread with lower priority is found
+	while (ptr != NULL) {
+		if (ptr->thread->priority < node->thread->priority) {
+//			If prev isn't next, insert the node between ptr and prev
+			if (prev != NULL) {
+				prev->next = node;
+				node->next = ptr;
+				__sync_lock_release(&modifying_queue);
+				return 0;
+//			If prev is null, then node must be the beginning of the run queue
+ 			} else {
+				scheduler->first_running_queue = node;
+				node->next = ptr;
+				__sync_lock_release(&modifying_queue);
+				return 0;
+			}
+		}
+		prev = ptr;
+		ptr = ptr->next;
+	}
+//	If no threads have lower priority, then the thread must be inserted at the end
+	if (prev != NULL) {
+		prev->next = node;
+//	If prev is null, then that means that the queue is empty
+	} else {
+		scheduler->first_running_queue = node;
+	}
+	__sync_lock_release(&modifying_queue);
+	return 0;
+}
+
 //A function to get the currently running thread.
 thread_node* get_current_thread() {
 //	Based on the current queue number, return the first thread from that queue
@@ -158,7 +196,7 @@ int swap_contexts() {
     }
 //	If another function is modifying the queue, wait for it to finish before working
 	if (__sync_lock_test_and_set(&modifying_queue, 1) == 1) {
-        timer->it_interval.tv_usec = 1000;
+        timer.it_interval.tv_usec = 1000;
         return 0;
     }
 	thread_node* ptr;
@@ -202,7 +240,7 @@ int swap_contexts() {
 //		If the first queue has the highest priority thread, switch to that one.
 		case 1:
 		scheduler->current_queue_number = 1;
-		timer->it_interval.tv_usec = 25000;
+		timer.it_interval.tv_usec = 25000;
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
 		swapcontext(&(ptr->thread->context), &(scheduler->first_running_queue->thread->context));
@@ -210,7 +248,7 @@ int swap_contexts() {
 //		If the second queue has the highest priority thread, switch to that one.
 		case 2:
 		scheduler->current_queue_number = 2;
-		timer->it_interval.tv_usec = 50000;
+		timer.it_interval.tv_usec = 50000;
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
 		swapcontext(&(ptr->thread->context), &(scheduler->second_running_queue->thread->context));
@@ -260,16 +298,19 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 //	Initiate the thread to have priority 100, default for threads in priority level 1.
 	new_thread->thread->priority = 100;
 //	If there's no timer, create a new timer and set an alarm for every 25 ms
-	if (timer == NULL) {
+	if (timer.it_interval.tv_usec == 0) {
 		printf("making a timer\n");
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
 		mutex_id = 0;
 //		Set the signal handler to be the execute function
-		signal (SIGVTALRM, swap_contexts);
-		timer = malloc(sizeof(struct itimerval));
-		timer->it_interval.tv_usec = 25000;
-		setitimer(ITIMER_VIRTUAL, timer, NULL);
+		signal (SIGALRM, swap_contexts);
+		struct itimerval old;
+		timer.it_value.tv_sec = 0;
+		timer.it_value.tv_usec = 25000;
+		timer.it_interval.tv_sec = 0;
+		timer.it_interval.tv_usec = 25000;
+		setitimer(ITIMER_REAL, &timer, &old);
 	}
 //	If the scheduler hasn't been initialized yet, initialize it
 	if (scheduler == NULL) {
@@ -407,7 +448,7 @@ int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex) {
 //				Add any nodes that were removed from the wait queue to the end of the run queue
                 thread_node* new_node = malloc(sizeof(thread_node));
                 new_node->thread = ptr->thread;
-                add_to_run_queue(1, new_node);	
+                add_to_run_queue_priority_based(new_node);
             }
             prev = ptr;
             ptr = ptr->next;
