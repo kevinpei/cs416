@@ -247,7 +247,7 @@ int swap_contexts() {
 		timer.it_interval.tv_usec = 25000;
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
-		swapcontext(&(ptr->thread->context), &(scheduler->first_running_queue->thread->context));
+		swapcontext(ptr->thread->context, scheduler->first_running_queue->thread->context);
 		break;
 //		If the second queue has the highest priority thread, switch to that one.
 		case 2:
@@ -256,14 +256,14 @@ int swap_contexts() {
 		timer.it_interval.tv_usec = 50000;
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
-		swapcontext(&(ptr->thread->context), &(scheduler->second_running_queue->thread->context));
+		swapcontext(ptr->thread->context, scheduler->second_running_queue->thread->context);
 		break;
 //		If the third queue has the highest priority thread, switch to that one.
 		case 3:
 		scheduler->current_queue_number = 3;
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
-		swapcontext(&(ptr->thread->context), &(scheduler->third_running_queue->thread->context));
+		swapcontext(ptr->thread->context, scheduler->third_running_queue->thread->context);
 		break;
 //		If none of the above, then something went wrong.
 		__sync_lock_release(&scheduler_running);
@@ -287,24 +287,25 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 //	Malloc some space and create a new thread
 	thread_node* new_thread = malloc(sizeof(thread_node));
 	new_thread->thread = malloc(sizeof(my_pthread));
-	getcontext(&(new_thread->thread->context));
+	new_thread->thread->context = malloc(sizeof(ucontext_t));
+	getcontext(new_thread->thread->context);
 	printf("Got context\n");
 //	Set this linkt to be the swap contexts function
-	new_thread->thread->context.uc_link = &(return_function);
+	new_thread->thread->context->uc_link = &(return_function);
 	
 //	Which signals do we want to block?
 //	ptr->context.uc_sigmask = 
 
 //	Initializes a stack for the new thread with size 64000 bytes
-	new_thread->thread->context.uc_stack.ss_sp=malloc(64000);
-	new_thread->thread->context.uc_stack.ss_size=64000;
-	new_thread->thread->context.uc_stack.ss_flags=0;
+	new_thread->thread->context->uc_stack.ss_sp=malloc(64000);
+	new_thread->thread->context->uc_stack.ss_size=64000;
+	new_thread->thread->context->uc_stack.ss_flags=0;
 	
 //	Sets the pid of the new thread to be the first argument given
 	new_thread->thread->pid = *thread;
 	
 //	Make a new context. We assume the function has 0 arguments.
-	makecontext(&(new_thread->thread->context), (void*)&function, 1, arg);
+	makecontext(new_thread->thread->context, (void*)&function, 1, arg);
 	printf("Made a new context\n");
 //	Initiate the thread to have priority 100, default for threads in priority level 1.
 	new_thread->thread->priority = 100;
@@ -332,9 +333,9 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		printf("Adding to run queue\n");
 		add_to_run_queue(1, new_thread);
 		printf("Added to run queue\n");
-		getcontext(&(scheduler_thread));
 		printf("Swapping contexts\n");
-		swapcontext(&(scheduler_thread), &(scheduler->first_running_queue->thread->context));
+		printf("%d, %d\n", scheduler->first_running_queue->thread->pid, scheduler->first_running_queue->thread->context->uc_stack.ss_size);
+		setcontext(scheduler->first_running_queue->thread->context);
 		return -1;
 	}
 	//	Add the thread to the end of the first run queue. 

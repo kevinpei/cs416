@@ -23,6 +23,7 @@ int *mem = NULL;
 int sum = 0;
 
 void external_calculate(void* arg) {
+	printf("Swapped\n");
 	int i = 0, j = 0;
 	char *t_name = (char *) arg;
 	int n = atoi(t_name) - 1;

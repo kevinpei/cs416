@@ -23,7 +23,7 @@
 typedef uint my_pthread_t;
 
 typedef struct my_pthread {
-	ucontext_t context;
+	ucontext_t* context;
 	int priority;
 	int execution_time;
 	my_pthread_t pid;
@@ -76,7 +76,7 @@ tcb* scheduler;
 struct itimerval timer;
 int scheduler_running;
 int modifying_queue;
-ucontext_t return_function, scheduler_thread;
+ucontext_t return_function;
 uint mutex_id;
 // Feel free to add your own auxiliary data structures
 
