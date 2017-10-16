@@ -278,8 +278,8 @@ int swap_contexts() {
 /* create a new thread */
 int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg) {
 	if (&(return_function) == NULL) {
-		return_function.uc_stack.ss_sp=malloc(64000);
-		return_function.uc_stack.ss_size=64000;
+		return_function.uc_stack.ss_sp=malloc(5000);
+		return_function.uc_stack.ss_size=5000;
 		getcontext(&(return_function));
 		makecontext(&(return_function), (void*)&exit, 1, arg);
 	}
@@ -296,9 +296,9 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 //	Which signals do we want to block?
 //	ptr->context.uc_sigmask = 
 
-//	Initializes a stack for the new thread with size 64000 bytes
-	new_thread->thread->context->uc_stack.ss_sp=malloc(64000);
-	new_thread->thread->context->uc_stack.ss_size=64000;
+//	Initializes a stack for the new thread with size 5000 bytes
+	new_thread->thread->context->uc_stack.ss_sp=malloc(5000);
+	new_thread->thread->context->uc_stack.ss_size=5000;
 	new_thread->thread->context->uc_stack.ss_flags=0;
 	
 //	Sets the pid of the new thread to be the first argument given
