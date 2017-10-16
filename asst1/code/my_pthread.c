@@ -203,26 +203,29 @@ int swap_contexts() {
 //	Depending on which run queue was running, change the priority of the current thread
 	switch(scheduler->current_queue_number) {
 //		If a thread in the first run queue was running, age every other thread, then move it to the second run queue and set its priority to 50.
+		thread_node* current_running_queue;
 		case 1: 
+		current_running_queue = scheduler->first_running_queue;
 		ptr = scheduler->first_running_queue;
 		scheduler->first_running_queue = ptr->next;
 		age();
-		ptr->thread->priority = 50;
-		add_to_run_queue(2, ptr);
+		yield_handler(ptr);
 		break;
 //		If a thread in the second run queue was running, age every other thread, then move it to the third run queue and set its priority to 0.
 		case 2: 
+		current_running_queue = scheduler->second_running_queue;
 		ptr = scheduler->second_running_queue;
 		scheduler->second_running_queue = ptr->next;
 		age();
-		ptr->thread->priority = 0;
-		add_to_run_queue(3, ptr);
+		yield_handler(ptr);
 		break;
 //		If a thread in the third run queue was running, then it must be finished, because all threads there run to completion.
 		case 3: 
+		current_running_queue = scheduler->first_running_queue;
 		ptr = scheduler->third_running_queue;
-		age();
 		scheduler->third_running_queue = ptr->next;
+		age();
+		yield_handler(ptr);
 		break;
 //		If none of the above, then something went wrong.
 		default: 
@@ -231,6 +234,14 @@ int swap_contexts() {
 		return -1;
 	}
 //	Depending on which queue has the highest first priority, switch the context to run that thread
+
+
+//FIX THIS
+	ptr->thread->yield_purpose = 0;
+//FIX THIS
+
+
+
 	switch (get_highest_priority()) {
 //		If there are no more threads, then do nothing.
 		case 0:
@@ -240,6 +251,7 @@ int swap_contexts() {
 //		If the first queue has the highest priority thread, switch to that one.
 		case 1:
 		scheduler->current_queue_number = 1;
+		timer.it_value.tv_usec = 25000;
 		timer.it_interval.tv_usec = 25000;
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
@@ -248,6 +260,7 @@ int swap_contexts() {
 //		If the second queue has the highest priority thread, switch to that one.
 		case 2:
 		scheduler->current_queue_number = 2;
+		timer.it_value.tv_usec = 50000;
 		timer.it_interval.tv_usec = 50000;
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
@@ -324,6 +337,90 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	return 0;
 };
 
+// helper function for swap_contexts() to handle yield
+int yield_handler(thread_node* ptr)
+{
+    switch (ptr->thread->yield_purpose) {
+    case 1: {
+        // exit()
+        // copy the pid of current thread
+        my_pthread_t exit_pid = ptr->thread->pid;
+        // remove the thread
+        thread_node *temp = ptr;
+		free(temp->thread);
+		free(temp);
+        // iterate through waiting queue, move threads waiting for exit thread to running queue
+        join_waiting_queue_node *wait_prev = NULL;
+        join_waiting_queue_node *wait_ptr = scheduler->join_waiting_queue;
+        while (wait_ptr != NULL)
+        {
+            if (wait_ptr->thread->pid == exit_pid)
+            {
+                // add node to run queue
+                thread_node *new_node = (thread_node *) malloc(sizeof(thread_node));
+                new_node->thread = wait_ptr->thread;
+                add_to_run_queue_priority_based(new_node);
+                // remove node from wait queue
+                if (wait_prev == NULL) // head of queue
+                {
+                    scheduler->join_waiting_queue = wait_ptr->next;
+                    free(wait_ptr);
+                }
+                else
+                {
+                    wait_prev->next = wait_ptr->next;
+					free(wait_ptr);
+                }
+			}
+			wait_prev = wait_ptr;
+			wait_ptr = wait_ptr->next;
+		}
+        break;
+    }
+    case 2: {
+        // join()
+        break;
+    }
+	case 3: {
+		//mutex_lock()
+		break;
+	} case 4: {
+		//yield()
+		thread_node* current_running_queue;
+		switch(scheduler->current_queue_number) {
+		case 1:
+		current_running_queue = scheduler->first_running_queue;
+		break;
+		case 2:
+		current_running_queue = scheduler->second_running_queue;
+		break;
+		case 3:
+		current_running_queue = scheduler->third_running_queue;
+		break;
+		}
+		if (ptr->next != NULL) {
+			current_running_queue = ptr->next;
+			current_running_queue->next = ptr;
+			ptr->next = ptr->next->next;
+		}
+	}
+    default:
+	switch(scheduler->current_queue_number) {
+		case 1:
+		ptr->thread->priority = 50;
+		add_to_run_queue(2, ptr);
+		break;
+		case 2:
+		ptr->thread->priority = 0;
+		add_to_run_queue(3, ptr);
+		break;
+		default:
+		break;
+	}
+	break;
+    }
+}
+
 /* give CPU pocession to other user level threads voluntarily */
 int my_pthread_yield() {
     swap_contexts();
@@ -332,49 +429,70 @@ int my_pthread_yield() {
 
 /* terminate a thread */
 void my_pthread_exit(void *value_ptr) {
-    //Same as yield, except end the thread
-    thread_node* current_thread = get_current_thread();
-	switch(scheduler->current_queue_number) {
-		case 1:
-		scheduler->first_running_queue = current_thread->next;
-		break;
-		case 2:
-		scheduler->second_running_queue = current_thread->next;
-		break;
-		case 3:
-		scheduler->third_running_queue = current_thread->next;
-		break;
-	}
+    // lock queue
+    if (__sync_lock_test_and_set(&modifying_queue, 1) == 1)
+    {
+        return -1; // another thread locks the queue, should not happen
+    }
+    // save return value to the threads waiting for this thread
+    if (scheduler->join_waiting_queue != NULL)
+    {
+        join_waiting_queue_node *wait_ptr = scheduler->join_waiting_queue;
+        join_waiting_queue_node *wait_prev = NULL;
+        /* if (wait_ptr->pid == current_pid) */
+        /* { */
+        /*     wait_ptr->ret_val_pos = value_ptr; */
+        /* } */
+        while (wait_ptr != NULL)
+        {
+            if (wait_ptr->pid == current_pid)
+            {
+                wait_ptr->ret_val_pos = value_ptr;
+            }
+            wait_prev = wait_ptr;
+            wait_ptr = wait_ptr->next;
+        }
+    }
     // set flag to indicate pthread exit
-    // save return value somewhere
+    get_current_thread()->thread->yield_purpose = 1;
+    // unlock queue
+    __sync_lock_release(&modifying_queue);
     my_pthread_yield();
 };
 
 /* wait for thread termination */
 int my_pthread_join(my_pthread_t thread, void **value_ptr) {
-
-	thread_node* current_thread = get_current_thread();
-	switch(scheduler->current_queue_number) {
-		case 1:
-		scheduler->first_running_queue = current_thread->next;
-		break;
-		case 2:
-		scheduler->second_running_queue = current_thread->next;
-		break;
-		case 3:
-		scheduler->third_running_queue = current_thread->next;
-		break;
-	}
-	join_waiting_queue_node* node = malloc(sizeof(join_waiting_queue_node));
-	node->thread = current_thread->thread;
-	node->pid = thread;
-	add_to_join_wait_queue(node);
-
+    // lock queue
+    if (__sync_lock_test_and_set(&modifying_queue, 1) == 1)
+    {
+        return -1; // another thead locks the queue, should not happen
+    }
+    // create new waiting node
+    join_waiting_queue_node *new_node = (join_waiting_queue_node *) malloc(sizeof(join_waiting_queue_node));
+    new_node->thread = get_current_thread()->thread;
+    new_node->pid = get_current_thread()->thread->pid;
+    &(new_node->ret_val_pos) = value_ptr;
+    // add to wait queue
+    if (scheduler->join_waiting_queue == NULL)
+    {
+        scheduler->join_waiting_queue = new_node;
+    }
+    else
+    {
+        join_waiting_queue_node *ptr = scheduler->join_waiting_queue;
+        while (ptr->next != NULL)
+        {
+            ptr = ptr->next;
+        }
+        ptr->next = new_node;
+    }
+    // set flag for scheduler
+    get_current_thread()->thread->yield_purpose = 2;
+    // unlock queue mutex
+    __sync_lock_release(&modifying_queue);
     my_pthread_yield();
-	
     //Wait for the other thread to finish executing
-    
-    return 0; 
+    return 0;
 };
 
 /* initial the mutex lock */

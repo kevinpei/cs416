@@ -27,6 +27,8 @@ typedef struct my_pthread {
 	int priority;
 	int execution_time;
 	my_pthread_t pid;
+	void *ret_val;
+	int yield_purpose;
 } my_pthread;
 
 typedef struct thread_node {
@@ -37,6 +39,7 @@ typedef struct thread_node {
 typedef struct mutex_waiting_queue_node {
 	my_pthread* thread;
 	uint mutex_lock;
+	void *ret_val_pos;
 	struct mutex_waiting_queue_node* next;
 } mutex_waiting_queue_node;
 
