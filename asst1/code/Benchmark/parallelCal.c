@@ -22,14 +22,15 @@ int  sum;
 
 /* A CPU-bound task to do parallel array addition */
 void parallel_calculate(void* arg) {
+	int i = 0, j = 0;
 	char *t_name = (char *) arg;
 	int n = atoi(t_name) - 1;
-	for (int j = n; j < R_SIZE; j += THREAD_NUM) {
-		for (int i = 0; i < C_SIZE; ++i) {
+	for (j = n; j < R_SIZE; j += THREAD_NUM) {
+		for (i = 0; i < C_SIZE; ++i) {
 			pSum[j] += a[j][i] * i;
 		}
 	}
-	for (int j = n; j < R_SIZE; j += THREAD_NUM) {
+	for (j = n; j < R_SIZE; j += THREAD_NUM) {
 		my_pthread_mutex_lock(&mutex);
 		sum += pSum[j];
 		my_pthread_mutex_unlock(&mutex);
@@ -37,23 +38,23 @@ void parallel_calculate(void* arg) {
 }
 
 int main() {
-
+	int i = 0, j = 0;
 	char name[2];
 
 	// initialize data array
-	for (int i = 0; i < R_SIZE; ++i)
+	for (i = 0; i < R_SIZE; ++i)
 		a[i] = (int*)malloc(C_SIZE*sizeof(int));
 
-	for (int i = 0; i < R_SIZE; ++i)
-		for (int j = 0; j < C_SIZE; ++j)
+	for (i = 0; i < R_SIZE; ++i)
+		for (j = 0; j < C_SIZE; ++j)
 			a[i][j] = j;
 
-	for (int i = 0; i < THREAD_NUM; ++i) {
+	for (i = 0; i < THREAD_NUM; ++i) {
 		sprintf(name, "%d", i+1);
 		my_pthread_create(&thread[i], NULL, &parallel_calculate, name);
 	}
 
-	for (int i = 0; i < THREAD_NUM; ++i)
+	for (i = 0; i < THREAD_NUM; ++i)
 		my_pthread_join(thread[i], NULL);
 
 	return 0;
