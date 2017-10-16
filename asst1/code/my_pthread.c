@@ -277,14 +277,20 @@ int swap_contexts() {
 
 /* create a new thread */
 int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg) {
+	if (&(return_function) == NULL) {
+		return_function.uc_stack.ss_sp=malloc(64000);
+		return_function.uc_stack.ss_size=64000;
+		getcontext(&(return_function));
+		makecontext(&(return_function), (void*)&exit, 1, arg);
+	}
+	printf("Made exit function\n");
 //	Malloc some space and create a new thread
 	thread_node* new_thread = malloc(sizeof(thread_node));
 	new_thread->thread = malloc(sizeof(my_pthread));
 	getcontext(&(new_thread->thread->context));
 	printf("Got context\n");
-	
 //	Set this linkt to be the swap contexts function
-	new_thread->thread->context.uc_link = 0;
+	new_thread->thread->context.uc_link = &(return_function);
 	
 //	Which signals do we want to block?
 //	ptr->context.uc_sigmask = 
@@ -298,7 +304,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	new_thread->thread->pid = *thread;
 	
 //	Make a new context. We assume the function has 0 arguments.
-	makecontext(&(new_thread->thread->context), function, 1, arg);
+	makecontext(&(new_thread->thread->context), (void*)&function, 1, arg);
 	printf("Made a new context\n");
 //	Initiate the thread to have priority 100, default for threads in priority level 1.
 	new_thread->thread->priority = 100;
@@ -309,7 +315,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		__sync_lock_release(&modifying_queue);
 		mutex_id = 0;
 //		Set the signal handler to be the execute function
-		signal (SIGALRM, swap_contexts);
+		signal (SIGALRM, (void*)&swap_contexts);
 		struct itimerval old;
 		timer.it_value.tv_sec = 0;
 		timer.it_value.tv_usec = 25000;
@@ -321,8 +327,17 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	if (scheduler == NULL) {
 		printf("making a scheduler\n");
 		scheduler = malloc(sizeof(tcb));
+		scheduler->current_queue_number = 1;
+		//	Add the thread to the end of the first run queue. 
+		printf("Adding to run queue\n");
+		add_to_run_queue(1, new_thread);
+		printf("Added to run queue\n");
+		getcontext(&(scheduler_thread));
+		printf("Swapping contexts\n");
+		swapcontext(&(scheduler_thread), &(scheduler->first_running_queue->thread->context));
+		return -1;
 	}
-//	Add the thread to the end of the first run queue. 
+	//	Add the thread to the end of the first run queue. 
 	printf("Adding to run queue\n");
 	add_to_run_queue(1, new_thread);
 	printf("Added to run queue\n");
@@ -422,7 +437,7 @@ void my_pthread_exit(void *value_ptr) {
     // lock queue
     if (__sync_lock_test_and_set(&modifying_queue, 1) == 1)
     {
-        return -1; // another thread locks the queue, should not happen
+        return; // another thread locks the queue, should not happen
     }
     // save return value to the threads waiting for this thread
     if (scheduler->join_waiting_queue != NULL)
@@ -435,9 +450,9 @@ void my_pthread_exit(void *value_ptr) {
         /* } */
         while (wait_ptr != NULL)
         {
-            if (wait_ptr->pid == current_pid)
+            if (wait_ptr->pid == get_current_thread()->thread->pid)
             {
-                wait_ptr->ret_val_pos = value_ptr;
+                *(wait_ptr->value_pointer) = value_ptr;
             }
             wait_prev = wait_ptr;
             wait_ptr = wait_ptr->next;
@@ -452,16 +467,20 @@ void my_pthread_exit(void *value_ptr) {
 
 /* wait for thread termination */
 int my_pthread_join(my_pthread_t thread, void **value_ptr) {
+	printf("Joining\n");
     // lock queue
     if (__sync_lock_test_and_set(&modifying_queue, 1) == 1)
     {
         return -1; // another thead locks the queue, should not happen
     }
     // create new waiting node
+	printf("Making new node\n");
     join_waiting_queue_node *new_node = (join_waiting_queue_node *) malloc(sizeof(join_waiting_queue_node));
     new_node->thread = get_current_thread()->thread;
     new_node->pid = get_current_thread()->thread->pid;
-    value_ptr = &(new_node->ret_val_pos);
+	printf("Setting value ptr\n");
+    new_node->value_pointer = value_ptr;
+	printf("Finished making new node\n");
     // add to wait queue
     if (scheduler->join_waiting_queue == NULL)
     {

@@ -39,13 +39,13 @@ typedef struct thread_node {
 typedef struct mutex_waiting_queue_node {
 	my_pthread* thread;
 	uint mutex_lock;
-	void *ret_val_pos;
 	struct mutex_waiting_queue_node* next;
 } mutex_waiting_queue_node;
 
 typedef struct join_waiting_queue_node {
 	my_pthread* thread;
 	my_pthread_t pid;
+	void **value_pointer;
 	struct join_waiting_queue_node* next;
 } join_waiting_queue_node;
 
@@ -76,6 +76,7 @@ tcb* scheduler;
 struct itimerval timer;
 int scheduler_running;
 int modifying_queue;
+ucontext_t return_function, scheduler_thread;
 uint mutex_id;
 // Feel free to add your own auxiliary data structures
 
