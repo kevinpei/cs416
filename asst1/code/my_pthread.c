@@ -285,7 +285,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
 		mutex_id = 0;
-		thread_id = 0;
+		thread_id = 1;
 	}
 	printf("Made exit function + Initialization\n");
 //	Malloc some space and create a new thread
@@ -334,18 +334,26 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		printf("making a scheduler\n");
 		scheduler = malloc(sizeof(tcb));
 		scheduler->current_queue_number = 1;
+		printf("scheduler initialized\n");
 		//	Add the thread to the end of the first run queue.
-		printf("Adding to run queue\n");
-		add_to_run_queue(1, new_thread);
+		// printf("Adding to run queue\n");
+		// add_to_run_queue(1, new_thread);
+		// printf("Added to run queue\n");
+		// printf("Swapping contexts\n");
+		// printf("%d, %d\n", scheduler->first_running_queue->thread->pid, scheduler->first_running_queue->thread->context->uc_stack.ss_size);
+
+		// make context for main. it's also for scheduler. pid = 0
+		printf("making context for main and scheduler\n");
+		thread_node* main_thread = malloc(sizeof(thread_node));
+		main_thread->thread = malloc(sizeof(my_pthread));
+		main_thread->thread->context = malloc(sizeof(ucontext_t));
+		getcontext(main_thread->thread->context);
+		printf("Adding main to run queue\n");
+		add_to_run_queue(1, main_thread);
 		printf("Added to run queue\n");
-		printf("Swapping contexts\n");
-		printf("%d, %d\n", scheduler->first_running_queue->thread->pid, scheduler->first_running_queue->thread->context->uc_stack.ss_size);
-		printf("Setting context\n");
-		setcontext(scheduler->first_running_queue->thread->context);
-		return -1;
 	}
 	//	Add the thread to the end of the first run queue.
-	printf("Adding to run queue\n");
+	printf("Adding new thread to run queue\n");
 	add_to_run_queue(1, new_thread);
 	printf("Added to run queue\n");
 	return 0;
