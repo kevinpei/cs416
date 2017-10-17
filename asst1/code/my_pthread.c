@@ -329,7 +329,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	getcontext(new_thread->thread->context);
 	printf("Got context\n");
 	//	Set this linkt to be the swap contexts function
-	new_thread->thread->context->uc_link = &(return_function);
+	new_thread->thread->context->uc_link = return_function;
 
 	//	Which signals do we want to block?
 	//	ptr->context.uc_sigmask =
