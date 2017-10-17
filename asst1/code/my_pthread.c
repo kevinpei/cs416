@@ -41,7 +41,7 @@ int add_to_run_queue(int num, thread_node* node) {
 		}
 		ptr = scheduler->third_running_queue;
 	}
-//	Iterate through the run queue and stop when we reach a NULL value	
+//	Iterate through the run queue and stop when we reach a NULL value
 	while (ptr->next != NULL) {
 		ptr = ptr->next;
 	}
@@ -108,7 +108,7 @@ int add_to_mutex_wait_queue(mutex_waiting_queue_node* node) {
 		return 0;
 	}
 	mutex_waiting_queue_node* ptr = scheduler->mutex_waiting_queue;
-//	Iterate through the queue and stop when we reach a NULL value	
+//	Iterate through the queue and stop when we reach a NULL value
 	while (ptr->next != NULL) {
 		ptr = ptr->next;
 	}
@@ -124,7 +124,7 @@ int add_to_join_wait_queue(join_waiting_queue_node* node) {
 		return 0;
 	}
 	join_waiting_queue_node* ptr = scheduler->join_waiting_queue;
-//	Iterate through the queue and stop when we reach a NULL value	
+//	Iterate through the queue and stop when we reach a NULL value
 	while (ptr->next != NULL) {
 		ptr = ptr->next;
 	}
@@ -204,7 +204,7 @@ int swap_contexts() {
 	switch(scheduler->current_queue_number) {
 //		If a thread in the first run queue was running, age every other thread, then move it to the second run queue and set its priority to 50.
 		thread_node* current_running_queue;
-		case 1: 
+		case 1:
 		current_running_queue = scheduler->first_running_queue;
 		ptr = scheduler->first_running_queue;
 		scheduler->first_running_queue = ptr->next;
@@ -212,7 +212,7 @@ int swap_contexts() {
 		yield_handler(ptr);
 		break;
 //		If a thread in the second run queue was running, age every other thread, then move it to the third run queue and set its priority to 0.
-		case 2: 
+		case 2:
 		current_running_queue = scheduler->second_running_queue;
 		ptr = scheduler->second_running_queue;
 		scheduler->second_running_queue = ptr->next;
@@ -220,7 +220,7 @@ int swap_contexts() {
 		yield_handler(ptr);
 		break;
 //		If a thread in the third run queue was running, then it must be finished, because all threads there run to completion.
-		case 3: 
+		case 3:
 		current_running_queue = scheduler->first_running_queue;
 		ptr = scheduler->third_running_queue;
 		scheduler->third_running_queue = ptr->next;
@@ -228,7 +228,7 @@ int swap_contexts() {
 		yield_handler(ptr);
 		break;
 //		If none of the above, then something went wrong.
-		default: 
+		default:
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
 		return -1;
@@ -277,13 +277,17 @@ int swap_contexts() {
 
 /* create a new thread */
 int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg) {
-	if (&(return_function) == NULL) {
+	if (&(return_function) == NULL) { // first time running, initialize everything
 		return_function.uc_stack.ss_sp=malloc(5000);
 		return_function.uc_stack.ss_size=5000;
 		getcontext(&(return_function));
 		makecontext(&(return_function), (void*)&exit, 1, arg);
+		__sync_lock_release(&scheduler_running);
+		__sync_lock_release(&modifying_queue);
+		mutex_id = 0;
+		thread_id = 0;
 	}
-	printf("Made exit function\n");
+	printf("Made exit function + Initialization\n");
 //	Malloc some space and create a new thread
 	thread_node* new_thread = malloc(sizeof(thread_node));
 	new_thread->thread = malloc(sizeof(my_pthread));
@@ -292,19 +296,23 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	printf("Got context\n");
 //	Set this linkt to be the swap contexts function
 	new_thread->thread->context->uc_link = &(return_function);
-	
+
 //	Which signals do we want to block?
-//	ptr->context.uc_sigmask = 
+//	ptr->context.uc_sigmask =
 
 //	Initializes a stack for the new thread with size 5000 bytes
 	new_thread->thread->context->uc_stack.ss_sp=malloc(5000);
 	new_thread->thread->context->uc_stack.ss_size=5000;
 	new_thread->thread->context->uc_stack.ss_flags=0;
-	
+
 //	Sets the pid of the new thread to be the first argument given
-	new_thread->thread->pid = *thread;
-	
-//	Make a new context. We assume the function has 0 arguments.
+	// new_thread->thread->pid = *thread;
+
+// assign pid manually
+	new_thread->thread->pid = thread_id;
+	*thread = thread_id;
+	thread_id++;
+
 	makecontext(new_thread->thread->context, (void*)&function, 1, arg);
 	printf("Made a new context\n");
 //	Initiate the thread to have priority 100, default for threads in priority level 1.
@@ -312,11 +320,8 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 //	If there's no timer, create a new timer and set an alarm for every 25 ms
 	if (timer.it_interval.tv_usec == 0) {
 		printf("making a timer\n");
-		__sync_lock_release(&scheduler_running);
-		__sync_lock_release(&modifying_queue);
-		mutex_id = 0;
 //		Set the signal handler to be the execute function
-		signal (SIGALRM, (void*)&swap_contexts);
+		signal (SIGALRM, (void*)&swap_contexts());
 		struct itimerval old;
 		timer.it_value.tv_sec = 0;
 		timer.it_value.tv_usec = 25000;
@@ -329,16 +334,17 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		printf("making a scheduler\n");
 		scheduler = malloc(sizeof(tcb));
 		scheduler->current_queue_number = 1;
-		//	Add the thread to the end of the first run queue. 
+		//	Add the thread to the end of the first run queue.
 		printf("Adding to run queue\n");
 		add_to_run_queue(1, new_thread);
 		printf("Added to run queue\n");
 		printf("Swapping contexts\n");
 		printf("%d, %d\n", scheduler->first_running_queue->thread->pid, scheduler->first_running_queue->thread->context->uc_stack.ss_size);
+		printf("Setting context\n");
 		setcontext(scheduler->first_running_queue->thread->context);
 		return -1;
 	}
-	//	Add the thread to the end of the first run queue. 
+	//	Add the thread to the end of the first run queue.
 	printf("Adding to run queue\n");
 	add_to_run_queue(1, new_thread);
 	printf("Added to run queue\n");
@@ -518,7 +524,7 @@ int my_pthread_mutex_init(my_pthread_mutex_t *mutex, const pthread_mutexattr_t *
 
 /* aquire the mutex lock */
 int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
-//	All mutexes are initialized with positive id's - if it's negative, then it's been destroyed. 
+//	All mutexes are initialized with positive id's - if it's negative, then it's been destroyed.
     if (mutex->mid < 0) {
         return -1;
     }
@@ -545,7 +551,7 @@ int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
 
 /* release the mutex lock */
 int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex) {
-//	All mutexes are initialized with positive id's - if it's negative, then it's been destroyed. 
+//	All mutexes are initialized with positive id's - if it's negative, then it's been destroyed.
     if (mutex->mid < 0) {
         return -1;
     }
