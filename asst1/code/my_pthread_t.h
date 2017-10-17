@@ -4,7 +4,7 @@
 
 // name:
 // username of iLab:
-// iLab Server: 
+// iLab Server:
 #ifndef MY_PTHREAD_T_H
 #define MY_PTHREAD_T_H
 
@@ -65,7 +65,7 @@ typedef struct threadControlBlock {
 	mutex_waiting_queue_node* mutex_waiting_queue;
 //	The secon wait queue is for threads waiting to join another thread
 	join_waiting_queue_node* join_waiting_queue;
-} tcb; 
+} tcb;
 
 /* mutex struct definition */
 typedef struct my_pthread_mutex_t {
@@ -75,12 +75,13 @@ typedef struct my_pthread_mutex_t {
 } my_pthread_mutex_t;
 
 /* define your data structures here: */
-tcb* scheduler;
+tcb* scheduler == NULL;
 struct itimerval timer;
-int scheduler_running;
-int modifying_queue;
-ucontext_t return_function;
-uint mutex_id;
+int scheduler_running = 0;
+int modifying_queue = 0;
+ucontext_t return_function = NULL;
+uint mutex_id = 0;
+my_pthread_t thread_id = 0;
 // Feel free to add your own auxiliary data structures
 
 
