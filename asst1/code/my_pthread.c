@@ -43,24 +43,6 @@ int add_to_run_queue(int num, thread_node* node) {
 	}
 	//	Add the thread to the end of the run queue.
 	ptr->next = node;
-	thread_node* testptr = scheduler->first_running_queue;
-	printf("\nQueue 1 threads: ");
-	while (testptr != NULL) {
-		printf("%d ", testptr->thread->pid);
-		testptr = testptr->next;
-	}
-	testptr = scheduler->second_running_queue;
-	printf("\nQueue 2 threads: ");
-	while (testptr != NULL) {
-		printf("%d ", testptr->thread->pid);
-		testptr = testptr->next;
-	}
-	testptr = scheduler->third_running_queue;
-	printf("\nQueue 3 threads: ");
-	while (testptr != NULL) {
-		printf("%d ", testptr->thread->pid);
-		testptr = testptr->next;
-	}
 	return 0;
 }
 
@@ -101,12 +83,15 @@ int add_to_run_queue_priority_based(thread_node* node) {
 //A function to get the currently running thread.
 thread_node* get_current_thread() {
 	//	Based on the current queue number, return the first thread from that queue
+	printf("Current scheduler number is %d\n", scheduler->current_queue_number);
 	if (scheduler->current_queue_number == 1) {
 		return scheduler->first_running_queue;
 	} else if (scheduler->current_queue_number == 2) {
 		return scheduler->second_running_queue;
-	}  else {
+	} else if (scheduler->current_queue_number == 3){
 		return scheduler->third_running_queue;
+	} else {
+		return NULL;
 	}
 }
 
@@ -178,6 +163,28 @@ int get_highest_priority() {
 	return highest_priority_queue;
 }
 
+int read_queues() {
+	thread_node* testptr = scheduler->first_running_queue;
+	printf("\nQueue 1 threads: ");
+	while (testptr != NULL) {
+		printf("%d ", testptr->thread->pid);
+		testptr = testptr->next;
+	}
+	testptr = scheduler->second_running_queue;
+	printf("\nQueue 2 threads: ");
+	while (testptr != NULL) {
+		printf("%d ", testptr->thread->pid);
+		testptr = testptr->next;
+	}
+	testptr = scheduler->third_running_queue;
+	printf("\nQueue 3 threads: ");
+	while (testptr != NULL) {
+		printf("%d ", testptr->thread->pid);
+		testptr = testptr->next;
+	}
+	return 0;
+}
+
 //Increases the priority of every thread in each running queue.
 int age() {
 	thread_node* ptr = scheduler->first_running_queue;
@@ -202,8 +209,21 @@ int age() {
 	return 0;
 }
 
+//Checks to see if there are threads currently running
+int check_queues() {
+	if (scheduler->first_running_queue == NULL && scheduler->second_running_queue == NULL && scheduler->third_running_queue == NULL) {
+		return 1;
+	}
+	return 0;
+}
+
 //Swaps contexts between the current thread and the thread with the highest priority
 int swap_contexts() {
+	//If there are no running threads, then just exit
+	if (check_queues() == 1) {
+		setcontext(main_function);
+		return 0;
+	}
 	printf("swap contexts\n");
 	//	If the scheduler is already running, don't do anything
 	if (__sync_lock_test_and_set(&scheduler_running, 1) == 1) {
@@ -221,6 +241,7 @@ int swap_contexts() {
 	//	Depending on which run queue was running, change the priority of the current thread
 
 	printf("preparing to handle yield() %d\n", scheduler->current_queue_number);
+	read_queues();
 	switch(scheduler->current_queue_number) {
 		//		If a thread in the first run queue was running, age every other thread, then move it to the second run queue and set its priority to 50.
 		case 1:
@@ -340,33 +361,22 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		// printf("Swapping contexts\n");
 		// printf("%d, %d\n", scheduler->first_running_queue->thread->pid, scheduler->first_running_queue->thread->context->uc_stack.ss_size);
 
-		// make context for main. it's also for scheduler. pid = 0
-		printf("making context for main and scheduler\n");
-		thread_node* main_thread = malloc(sizeof(thread_node));
-		main_thread->thread = malloc(sizeof(my_pthread));
-		main_thread->thread->context = malloc(sizeof(ucontext_t));
-		main_thread->thread->context->uc_stack.ss_sp=malloc(5000);
-		main_thread->thread->context->uc_stack.ss_size=5000;
-		main_thread->thread->context->uc_stack.ss_flags=0;
-		main_thread->thread->pid = thread_number;
-		thread_number++;
-		getcontext(main_thread->thread->context);
-		printf("Adding main to run queue\n");
+//		printf("Adding main to run queue\n");
 		//	If the queue is already being modified, wait for the operation to finish, then continue
-		printf("Lock value is %d\n", modifying_queue);
-		while (__sync_lock_test_and_set(&modifying_queue, 1) == 1) {
-			int placeholder = 0;
-		}
-		add_to_run_queue(1, main_thread);
-		__sync_lock_release(&modifying_queue);
-		printf("Added to run queue\n");
-
+//		printf("Lock value is %d\n", modifying_queue);
+//		while (__sync_lock_test_and_set(&modifying_queue, 1) == 1) {
+//			int placeholder = 0;
+//		}
+//		add_to_run_queue(1, main_thread);
+//		__sync_lock_release(&modifying_queue);
+//		printf("Added to run queue\n");
+		thread_number++;
 		// set return uc_link to exit()
 		return_function = malloc(sizeof(ucontext_t));
 		return_function->uc_stack.ss_sp=malloc(5000);
 		return_function->uc_stack.ss_size=5000;
 		getcontext(return_function);
-		makecontext(return_function, my_pthread_exit, 1, arg);
+		makecontext(return_function, &my_pthread_exit, 1, arg);
 		printf("Made exit function\n");
 
 		// init lock state
@@ -409,7 +419,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	if (timer.it_interval.tv_usec == 0) {
 		printf("making a timer\n");
 		//		Set the signal handler to be the execute function
-		signal (SIGALRM, swap_contexts);
+		signal (SIGALRM, &swap_contexts);
 		struct itimerval old;
 		timer.it_value.tv_sec = 0;
 		timer.it_value.tv_usec = 25000;
@@ -428,6 +438,18 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	add_to_run_queue(1, new_thread);
 	__sync_lock_release(&modifying_queue);
 	printf("Added to run queue\n");
+	if (main_function == NULL) {
+		// make context for main. it's also for scheduler. pid = 0
+		printf("making context for main and scheduler\n");
+//		thread_node* main_thread = malloc(sizeof(thread_node));
+//		main_thread->thread = malloc(sizeof(my_pthread));
+		main_function = malloc(sizeof(ucontext_t));
+		main_function->uc_stack.ss_sp=malloc(5000);
+		main_function->uc_stack.ss_size=5000;
+		main_function->uc_stack.ss_flags=0;
+//		main_thread->thread->pid = thread_number;
+		getcontext(main_function);
+	}
 	return 0;
 };
 
@@ -441,9 +463,7 @@ int yield_handler(thread_node* ptr)
 			// copy the pid of current thread
 			my_pthread_t exit_pid = ptr->thread->pid;
 			// remove the thread
-			thread_node *temp = ptr;
-			free(temp->thread);
-			free(temp);
+			//free(ptr->thread);
 			// iterate through waiting queue, move threads waiting for exit thread to running queue
 			join_waiting_queue_node *wait_prev = NULL;
 			join_waiting_queue_node *wait_ptr = scheduler->join_waiting_queue;
@@ -459,12 +479,12 @@ int yield_handler(thread_node* ptr)
 					if (wait_prev == NULL) // head of queue
 					{
 						scheduler->join_waiting_queue = wait_ptr->next;
-						free(wait_ptr);
+						//free(wait_ptr);
 					}
 					else
 					{
 						wait_prev->next = wait_ptr->next;
-						free(wait_ptr);
+						//free(wait_ptr);
 					}
 				}
 				wait_prev = wait_ptr;
@@ -522,6 +542,7 @@ int my_pthread_yield() {
 
 /* terminate a thread */
 void my_pthread_exit(void *value_ptr) {
+	printf("Exiting %d from %d\n", get_current_thread()->thread->pid, scheduler->first_running_queue->thread->pid);
 	// lock queue
 	if (__sync_lock_test_and_set(&modifying_queue, 1) == 1)
 	{
@@ -530,6 +551,7 @@ void my_pthread_exit(void *value_ptr) {
 	// save return value to the threads waiting for this thread
 	if (scheduler->join_waiting_queue != NULL)
 	{
+		printf("Editing wait queue\n");
 		join_waiting_queue_node *wait_ptr = scheduler->join_waiting_queue;
 		join_waiting_queue_node *wait_prev = NULL;
 		/* if (wait_ptr->pid == current_pid) */
@@ -538,14 +560,19 @@ void my_pthread_exit(void *value_ptr) {
 		/* } */
 		while (wait_ptr != NULL)
 		{
-			if (wait_ptr->pid == get_current_thread()->thread->pid)
-			{
-				*(wait_ptr->value_pointer) = value_ptr;
+			printf("thread %d\n", wait_ptr->thread->pid);
+			if (get_current_thread() != NULL) {
+				if (wait_ptr->pid == get_current_thread()->thread->pid)
+				{
+					printf("Trying something risky\n");
+					wait_ptr->value_pointer = &value_ptr;
+				}
 			}
 			wait_prev = wait_ptr;
 			wait_ptr = wait_ptr->next;
 		}
 	}
+	printf("Finished editing wait queue\n");
 	// set flag to indicate pthread exit
 	get_current_thread()->thread->yield_purpose = 1;
 	// unlock queue

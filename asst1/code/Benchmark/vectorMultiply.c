@@ -35,6 +35,7 @@ void vector_multiply(void* arg) {
 		res += r[i] * s[i];
 		pthread_mutex_unlock(&mutex);		
 	}
+	printf("FInished thread\n");
 }
 
 void verify() {

@@ -82,6 +82,7 @@ int modifying_queue;
 ucontext_t *return_function;
 my_pthread_t thread_number;
 uint mutex_id;
+ucontext_t* main_function;
 // Feel free to add your own auxiliary data structures
 
 
