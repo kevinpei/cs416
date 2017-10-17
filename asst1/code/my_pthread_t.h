@@ -75,11 +75,11 @@ typedef struct my_pthread_mutex_t {
 } my_pthread_mutex_t;
 
 /* define your data structures here: */
-tcb* scheduler == NULL;
+tcb* scheduler = NULL;
 struct itimerval timer;
 int scheduler_running = 0;
 int modifying_queue = 0;
-ucontext_t return_function = NULL;
+ucontext_t return_function;
 uint mutex_id = 0;
 my_pthread_t thread_id = 0;
 // Feel free to add your own auxiliary data structures
