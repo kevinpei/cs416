@@ -277,11 +277,12 @@ int swap_contexts() {
 
 /* create a new thread */
 int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg) {
-	if (&(return_function) == NULL) { // first time running, initialize everything
-		return_function.uc_stack.ss_sp=malloc(5000);
-		return_function.uc_stack.ss_size=5000;
-		getcontext(&(return_function));
-		makecontext(&(return_function), (void*)&exit, 1, arg);
+	if (return_function == NULL) { // first time running, initialize everything
+		return_function = malloc(sizeof(ucontext_t));
+		return_function->uc_stack.ss_sp=malloc(5000);
+		return_function->uc_stack.ss_size=5000;
+		getcontext(return_function);
+		makecontext(return_function, (void*)&exit, 1, arg);
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
 		mutex_id = 0;

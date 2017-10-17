@@ -79,7 +79,7 @@ tcb* scheduler;
 struct itimerval timer;
 int scheduler_running;
 int modifying_queue;
-ucontext_t return_function;
+ucontext_t *return_function;
 uint mutex_id;
 my_pthread_t thread_id;
 // Feel free to add your own auxiliary data structures
