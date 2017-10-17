@@ -203,6 +203,8 @@ int swap_contexts() {
 	}
 	thread_node* ptr;
 	//	Depending on which run queue was running, change the priority of the current thread
+
+	printf("preparing to handle yield()\n");
 	switch(scheduler->current_queue_number) {
 		//		If a thread in the first run queue was running, age every other thread, then move it to the second run queue and set its priority to 50.
 		thread_node* current_running_queue;
@@ -236,6 +238,8 @@ int swap_contexts() {
 		return -1;
 	}
 	//	Depending on which queue has the highest first priority, switch the context to run that thread
+
+	printf("yield() handled, ready to swapcontext()\n");
 	switch (get_highest_priority()) {
 		//		If there are no more threads, then do nothing.
 		case 0:
@@ -376,6 +380,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 // helper function for swap_contexts() to handle yield
 int yield_handler(thread_node* ptr)
 {
+	printf("handling yield()\n");
 	switch (ptr->thread->yield_purpose) {
 		case 1: {
 			// exit()
