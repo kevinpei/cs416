@@ -80,8 +80,8 @@ struct itimerval timer;
 int scheduler_running;
 int modifying_queue;
 ucontext_t *return_function;
+my_pthread_t thread_number;
 uint mutex_id;
-my_pthread_t thread_id;
 // Feel free to add your own auxiliary data structures
 
 

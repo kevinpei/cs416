@@ -26,6 +26,7 @@ int res = 0;
 
 /* A CPU-bound task to do vector multiplication */
 void vector_multiply(void* arg) {
+	printf("In thread\n");
 	int i = 0;
 	int n = *((int*) arg);
 	
