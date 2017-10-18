@@ -182,18 +182,28 @@ int read_queues() {
 		printf("%d ", testptr->thread->pid);
 		testptr = testptr->next;
 	}
+
 	mutex_waiting_queue_node *mwptr = scheduler->mutex_waiting_queue;
 	printf("\nmutex_waiting_queue: ");
 	while (mwptr != NULL) {
 		printf("%uwaiting%u, ", mwptr->thread->pid, mwptr->mutex_lock);
 		mwptr = mwptr->next;
 	}
+
 	join_waiting_queue_node *jwptr = scheduler->join_waiting_queue;
 	printf("\njoin_waiting_queue_node: ");
 	while (jwptr != NULL) {
 		printf("%uwaiting%u, ", jwptr->thread->pid, jwptr->pid);
 		jwptr = jwptr->next;
 	}
+
+	pid_list_node *exit_ptr = scheduler->exit_thread_list;
+	printf("\nexit_thread_list: ");
+	while (exit_ptr != NULL) {
+		printf("%d ", exit_ptr->pid);
+		exit_ptr = exit_ptr->next;
+	}
+
 	printf("\n");
 	return 0;
 }
@@ -237,17 +247,18 @@ int swap_contexts() {
 		return 0;
 	}
 	printf("\nswap contexts\n");
-	//	If the scheduler is already running, don't do anything
-	if (__sync_lock_test_and_set(&scheduler_running, 1) == 1) {
-		printf("scheduler is running, return\n");
-		return 0;
-	}
 	//	If another function is modifying the queue, wait for it to finish before working
 	if (__sync_lock_test_and_set(&modifying_queue, 1) == 1) {
 		printf("someone modifying the queue, return for now, come back soon\n");
 		timer.it_interval.tv_usec = 1000;
 		return 0;
 	}
+	//	If the scheduler is already running, don't do anything
+	if (__sync_lock_test_and_set(&scheduler_running, 1) == 1) {
+		printf("scheduler is running, return\n");
+		return 0;
+	}
+
 	thread_node* ptr;
 	thread_node* current_running_queue;
 	//	Depending on which run queue was running, change the priority of the current thread
@@ -290,7 +301,8 @@ int swap_contexts() {
 	}
 	//	Depending on which queue has the highest first priority, switch the context to run that thread
 
-	printf("done\nready to swapcontext()\n");
+	printf("done\nready to swapcontext()\nprint tcb:");
+	read_queues();
 	switch (get_highest_priority()) {
 		//		If there are no more threads, then do nothing.
 		case 0:
@@ -310,6 +322,12 @@ int swap_contexts() {
 		// free(ptr->thread->context);
 		// free(ptr->thread);
 		// free(ptr);
+		if (ptr->thread->pid == scheduler->first_running_queue->thread->pid) { // this is the only thread
+			__sync_lock_release(&scheduler_running);
+			__sync_lock_release(&modifying_queue);
+			// setcontext(ptr->thread->context);
+			return 0;
+		}
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
 		swapcontext(ptr->thread->context, scheduler->first_running_queue->thread->context);
@@ -327,6 +345,12 @@ int swap_contexts() {
 		// free(ptr->thread->context);
 		// free(ptr->thread);
 		// free(ptr);
+		if (ptr->thread->pid == scheduler->second_running_queue->thread->pid) { // this is the only thread
+			__sync_lock_release(&scheduler_running);
+			__sync_lock_release(&modifying_queue);
+			// setcontext(ptr->thread->context);
+			return 0;
+		}
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
 		swapcontext(ptr->thread->context, scheduler->second_running_queue->thread->context);
@@ -342,6 +366,12 @@ int swap_contexts() {
 		// free(ptr->thread->context);
 		// free(ptr->thread);
 		// free(ptr);
+		if (ptr->thread->pid == scheduler->third_running_queue->thread->pid) { // this is the only thread
+			__sync_lock_release(&scheduler_running);
+			__sync_lock_release(&modifying_queue);
+			// setcontext(ptr->thread->context);
+			return 0;
+		}
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
 		swapcontext(ptr->thread->context, scheduler->third_running_queue->thread->context);
@@ -397,6 +427,23 @@ int yield_handler(thread_node* ptr)
 					printf("done\n");
 				}
 				wait_ptr = wait_ptr->next;
+			}
+			// add pid to finished list
+			pid_list_node *finished_ptr = scheduler->exit_thread_list;
+			if (finished_ptr == NULL)
+			{
+				scheduler->exit_thread_list = malloc(sizeof(pid_list_node));
+				scheduler->exit_thread_list->pid = exit_pid;
+				scheduler->exit_thread_list->next = NULL;
+			}
+			else
+			{
+				while (finished_ptr->next != NULL) {
+					finished_ptr = finished_ptr->next;
+				}
+				finished_ptr->next = malloc(sizeof(pid_list_node));
+				finished_ptr->next->pid = exit_pid;
+				finished_ptr->next->next = NULL;
 			}
 			break;
 		}
@@ -610,14 +657,14 @@ void my_pthread_exit(void *value_ptr) {
 		printf("prev and ptr initialized, start iterating:\n");
 		while (wait_ptr != NULL)
 		{
-			printf("wait_ptr: %#x\n", wait_ptr);
-			printf("wait_ptr->thread: %#x\n", wait_ptr->thread);
-			printf("thread %d ... ", wait_ptr->thread->pid);
+			printf("thread %d:\n", wait_ptr->thread->pid);
 			if (wait_ptr->pid == get_current_thread()->thread->pid)
 			{
-				printf("saving return value ... ");
-				*(wait_ptr->value_pointer) = value_ptr;
-				printf("return value saved ... ");
+				printf("saving return value\n");
+				if (wait_ptr->value_pointer != NULL) {
+					*(wait_ptr->value_pointer) = value_ptr;
+				}
+				printf("return value saved\n");
 			}
 			printf("done\n");
 			wait_prev = wait_ptr;
@@ -641,11 +688,20 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 	{
 		return -1; // another thead locks the queue, should not happen
 	}
+	// check if the thread has already finished
+	pid_list_node *ptr = scheduler->exit_thread_list;
+	while (ptr != NULL) {
+		if (thread == ptr->pid) {
+			printf("thread already exit, return directly\n");
+			__sync_lock_release(&modifying_queue);
+			return;
+		}
+	}
 	// create new waiting node
 	printf("Making new node\n");
 	join_waiting_queue_node *new_node = (join_waiting_queue_node *) malloc(sizeof(join_waiting_queue_node));
 	new_node->thread = get_current_thread()->thread;
-	new_node->pid = thread + 1;
+	new_node->pid = thread;
 	printf("Setting value ptr\n");
 	new_node->value_pointer = value_ptr;
 	printf("Finished making new node\n");
