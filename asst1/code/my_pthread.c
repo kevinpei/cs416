@@ -221,7 +221,6 @@ int check_queues() {
 int swap_contexts() {
 	//If there are no running threads, then just exit
 	if (check_queues() == 1) {
-		setcontext(main_function);
 		return 0;
 	}
 	printf("swap contexts\n");
@@ -361,16 +360,27 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		// printf("Swapping contexts\n");
 		// printf("%d, %d\n", scheduler->first_running_queue->thread->pid, scheduler->first_running_queue->thread->context->uc_stack.ss_size);
 
-//		printf("Adding main to run queue\n");
-		//	If the queue is already being modified, wait for the operation to finish, then continue
-//		printf("Lock value is %d\n", modifying_queue);
-//		while (__sync_lock_test_and_set(&modifying_queue, 1) == 1) {
-//			int placeholder = 0;
-//		}
-//		add_to_run_queue(1, main_thread);
-//		__sync_lock_release(&modifying_queue);
-//		printf("Added to run queue\n");
+		// make context for main. it's also for scheduler. pid = 0
+		printf("making context for main and scheduler\n");
+		thread_node* main_thread = malloc(sizeof(thread_node));
+		main_thread->thread = malloc(sizeof(my_pthread));
+		main_thread->thread->context = malloc(sizeof(ucontext_t));
+		main_thread->thread->context->uc_stack.ss_sp=malloc(5000);
+		main_thread->thread->context->uc_stack.ss_size=5000;
+		main_thread->thread->context->uc_stack.ss_flags=0;
+		main_thread->thread->pid = thread_number;
 		thread_number++;
+		getcontext(main_thread->thread->context);
+		printf("Adding main to run queue\n");
+		//	If the queue is already being modified, wait for the operation to finish, then continue
+		printf("Lock value is %d\n", modifying_queue);
+		while (__sync_lock_test_and_set(&modifying_queue, 1) == 1) {
+			int placeholder = 0;
+		}
+		add_to_run_queue(1, main_thread);
+		__sync_lock_release(&modifying_queue);
+		printf("Added to run queue\n");
+
 		// set return uc_link to exit()
 		return_function = malloc(sizeof(ucontext_t));
 		return_function->uc_stack.ss_sp=malloc(5000);
@@ -438,18 +448,6 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	add_to_run_queue(1, new_thread);
 	__sync_lock_release(&modifying_queue);
 	printf("Added to run queue\n");
-	if (main_function == NULL) {
-		// make context for main. it's also for scheduler. pid = 0
-		printf("making context for main and scheduler\n");
-//		thread_node* main_thread = malloc(sizeof(thread_node));
-//		main_thread->thread = malloc(sizeof(my_pthread));
-		main_function = malloc(sizeof(ucontext_t));
-		main_function->uc_stack.ss_sp=malloc(5000);
-		main_function->uc_stack.ss_size=5000;
-		main_function->uc_stack.ss_flags=0;
-//		main_thread->thread->pid = thread_number;
-		getcontext(main_function);
-	}
 	return 0;
 };
 
