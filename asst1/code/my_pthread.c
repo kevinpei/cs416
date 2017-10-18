@@ -482,7 +482,7 @@ int yield_handler(thread_node* ptr)
 			add_to_run_queue(2, ptr);
 			break;
 			case 2:
-			ptr->thread->priority = 0;
+			ptr->thread->priority = 1;
 			add_to_run_queue(3, ptr);
 			break;
 			default:
@@ -544,6 +544,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		// main_thread->thread->context->uc_stack.ss_sp=malloc(5000);
 		// main_thread->thread->context->uc_stack.ss_size=5000;
 		// main_thread->thread->context->uc_stack.ss_flags=0;
+		main_thread->thread->priority = 100;
 		main_thread->thread->pid = thread_number;
 		thread_number++;
 		printf("Adding main to run queue\n");
@@ -697,6 +698,7 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 			__sync_lock_release(&modifying_queue);
 			return;
 		}
+		ptr = ptr->next;
 	}
 	// create new waiting node
 	printf("Making new node\n");
