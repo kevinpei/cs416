@@ -562,7 +562,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		getcontext(return_function);
 		return_function->uc_stack.ss_sp=malloc(5000);
 		return_function->uc_stack.ss_size=5000;
-		makecontext(return_function, &my_pthread_exit, 1, arg);
+		makecontext(return_function, (void (*)(void))&my_pthread_exit, 1, arg);
 		// printf("Made exit function, addr: %#x\n, return_function");
 
 		// init lock state
@@ -578,7 +578,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	if (timer.it_interval.tv_usec == 0) {
 		// printf("\nmaking a timer\n");
 		//		Set the signal handler to be the execute function
-		signal (SIGVTALRM, &swap_contexts);
+		signal (SIGVTALRM, (void(*)(int))&swap_contexts);
 		struct itimerval old;
 		timer.it_value.tv_sec = 0;
 		timer.it_value.tv_usec = 25000;
@@ -610,7 +610,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	thread_number++;
 	// printf("Making new thread pid %d\n", new_thread->thread->pid);
 
-	makecontext(new_thread->thread->context, function, 1, arg);
+	makecontext(new_thread->thread->context, (void(*)(void))function, 1, arg);
 	// printf("Made a new context\n");
 	//	Initiate the thread to have priority 100, default for threads in priority level 1.
 	new_thread->thread->priority = 100;
