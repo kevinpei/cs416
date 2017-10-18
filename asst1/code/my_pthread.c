@@ -250,7 +250,7 @@ int swap_contexts() {
 	//	If another function is modifying the queue, wait for it to finish before working
 	if (__sync_lock_test_and_set(&modifying_queue, 1) == 1) {
 		printf("someone modifying the queue, return for now, come back soon\n");
-		timer.it_interval.tv_usec = 1000;
+		timer.it_interval.tv_usec = 100000;
 		return 0;
 	}
 	//	If the scheduler is already running, don't do anything
@@ -541,14 +541,14 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		main_thread->thread = malloc(sizeof(my_pthread));
 		main_thread->thread->context = malloc(sizeof(ucontext_t));
 		getcontext(main_thread->thread->context);
-		main_thread->thread->context->uc_stack.ss_sp=malloc(5000);
-		main_thread->thread->context->uc_stack.ss_size=5000;
-		main_thread->thread->context->uc_stack.ss_flags=0;
+		// main_thread->thread->context->uc_stack.ss_sp=malloc(5000);
+		// main_thread->thread->context->uc_stack.ss_size=5000;
+		// main_thread->thread->context->uc_stack.ss_flags=0;
 		main_thread->thread->pid = thread_number;
 		thread_number++;
 		printf("Adding main to run queue\n");
 		//	If the queue is already being modified, wait for the operation to finish, then continue
-		printf("Lock value is %d\n", modifying_queue);
+		printf("Queue Lock value is %d\n", modifying_queue);
 		while (__sync_lock_test_and_set(&modifying_queue, 1) == 1) {
 			int placeholder = 0;
 		}
@@ -686,6 +686,7 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 	// lock queue
 	if (__sync_lock_test_and_set(&modifying_queue, 1) == 1)
 	{
+		printf("ERRIR: queue locked when joining\n");
 		return -1; // another thead locks the queue, should not happen
 	}
 	// check if the thread has already finished
