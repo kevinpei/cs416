@@ -3,7 +3,7 @@
 // Date:	09/23/2017
 
 // name: Kevin Pei, Derek Mao, Quzhi Li
-// username of iLab: ksp98
+// username of iLab: ksp98, mm2180, ql88
 // iLab Server: ls.cs.rutgers.edu
 #ifndef MY_PTHREAD_T_H
 #define MY_PTHREAD_T_H
