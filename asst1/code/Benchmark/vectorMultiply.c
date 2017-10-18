@@ -26,7 +26,6 @@ int res = 0;
 
 /* A CPU-bound task to do vector multiplication */
 void vector_multiply(void* arg) {
-	printf("In thread\n");
 	int i = 0;
 	int n = *((int*) arg);
 	
@@ -35,7 +34,6 @@ void vector_multiply(void* arg) {
 		res += r[i] * s[i];
 		pthread_mutex_unlock(&mutex);		
 	}
-	printf("FInished thread\n");
 }
 
 void verify() {
