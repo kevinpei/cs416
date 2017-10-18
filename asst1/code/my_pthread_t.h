@@ -4,11 +4,14 @@
 
 // name:
 // username of iLab:
-// iLab Server: 
+// iLab Server:
 #ifndef MY_PTHREAD_T_H
 #define MY_PTHREAD_T_H
 
 #define _GNU_SOURCE
+
+/* To use real pthread Library in Benchmark, you have to comment the USE_MY_PTHREAD macro */
+#define USE_MY_PTHREAD 1
 
 /* include lib header files that you need here: */
 #include <unistd.h>
@@ -23,7 +26,7 @@
 typedef uint my_pthread_t;
 
 typedef struct my_pthread {
-	ucontext_t context;
+	ucontext_t* context;
 	int priority;
 	int execution_time;
 	my_pthread_t pid;
@@ -39,13 +42,13 @@ typedef struct thread_node {
 typedef struct mutex_waiting_queue_node {
 	my_pthread* thread;
 	uint mutex_lock;
-	void *ret_val_pos;
 	struct mutex_waiting_queue_node* next;
 } mutex_waiting_queue_node;
 
 typedef struct join_waiting_queue_node {
 	my_pthread* thread;
 	my_pthread_t pid;
+	void **value_pointer;
 	struct join_waiting_queue_node* next;
 } join_waiting_queue_node;
 
@@ -62,7 +65,7 @@ typedef struct threadControlBlock {
 	mutex_waiting_queue_node* mutex_waiting_queue;
 //	The secon wait queue is for threads waiting to join another thread
 	join_waiting_queue_node* join_waiting_queue;
-} tcb; 
+} tcb;
 
 /* mutex struct definition */
 typedef struct my_pthread_mutex_t {
@@ -76,6 +79,8 @@ tcb* scheduler;
 struct itimerval timer;
 int scheduler_running;
 int modifying_queue;
+ucontext_t *return_function;
+my_pthread_t thread_number;
 uint mutex_id;
 // Feel free to add your own auxiliary data structures
 
@@ -126,5 +131,17 @@ int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex);
 
 /* destroy the mutex */
 int my_pthread_mutex_destroy(my_pthread_mutex_t *mutex);
+
+#ifdef USE_MY_PTHREAD
+#define pthread_t my_pthread_t
+#define pthread_mutex_t my_pthread_mutex_t
+#define pthread_create my_pthread_create
+#define pthread_exit my_pthread_exit
+#define pthread_join my_pthread_join
+#define pthread_mutex_init my_pthread_mutex_init
+#define pthread_mutex_lock my_pthread_mutex_lock
+#define pthread_mutex_unlock my_pthread_mutex_unlock
+#define pthread_mutex_destroy my_pthread_mutex_destroy
+#endif
 
 #endif
