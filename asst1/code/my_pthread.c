@@ -530,13 +530,13 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	if (timer.it_interval.tv_usec == 0) {
 		printf("\nmaking a timer\n");
 		//		Set the signal handler to be the execute function
-		signal (SIGALRM, &swap_contexts);
+		signal (SIGVTALRM, &swap_contexts);
 		struct itimerval old;
 		timer.it_value.tv_sec = 0;
 		timer.it_value.tv_usec = 25000;
 		timer.it_interval.tv_sec = 0;
 		timer.it_interval.tv_usec = 25000;
-		setitimer(ITIMER_REAL, &timer, &old);
+		setitimer(ITIMER_VIRTUAL, &timer, &old);
 	}
 
 	// if (return_function == NULL) { // first time running, initialize everything
