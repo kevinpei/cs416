@@ -250,7 +250,7 @@ int swap_contexts() {
 	//	If another function is modifying the queue, wait for it to finish before working
 	if (__sync_lock_test_and_set(&modifying_queue, 1) == 1) {
 		printf("someone modifying the queue, return for now, come back soon\n");
-		timer.it_interval.tv_usec = 100000;
+		timer.it_interval.tv_usec = 1000;
 		return 0;
 	}
 	//	If the scheduler is already running, don't do anything
