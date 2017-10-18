@@ -10,7 +10,7 @@
 
 //A function to add a given thread node to the end of the given running queue
 int add_to_run_queue(int num, thread_node* node) {
-	
+
 	//	If there are no running threads in the given run queue, make the thread the beginning of the queue
 	thread_node* ptr;
 	if (num == 1) {
@@ -83,7 +83,7 @@ int add_to_run_queue_priority_based(thread_node* node) {
 //A function to get the currently running thread.
 thread_node* get_current_thread() {
 	//	Based on the current queue number, return the first thread from that queue
-	printf("Current scheduler number is %d\n", scheduler->current_queue_number);
+	// printf("Current scheduler number is %d\n", scheduler->current_queue_number);
 	if (scheduler->current_queue_number == 1) {
 		return scheduler->first_running_queue;
 	} else if (scheduler->current_queue_number == 2) {
@@ -131,7 +131,7 @@ int add_to_join_wait_queue(join_waiting_queue_node* node) {
 //If there is a tie, then the higher priority queue (e.g. first over second) is run
 int get_highest_priority() {
 	//	If the queue is already being modified, wait for the operation to finish, then continue
-	
+
 	//Don't need to lock, the only time this function is called is inside the scheduler
 	/*while (__sync_lock_test_and_set(&modifying_queue, 1) == 1) {
 		int placeholder = 0;
@@ -182,11 +182,25 @@ int read_queues() {
 		printf("%d ", testptr->thread->pid);
 		testptr = testptr->next;
 	}
+	mutex_waiting_queue_node *mwptr = scheduler->mutex_waiting_queue;
+	printf("\nmutex_waiting_queue: ");
+	while (mwptr != NULL) {
+		printf("%uwaiting%u, ", mwptr->thread->pid, mwptr->mutex_lock);
+		mwptr = mwptr->next;
+	}
+	join_waiting_queue_node *jwptr = scheduler->join_waiting_queue;
+	printf("\njoin_waiting_queue_node: ");
+	while (jwptr != NULL) {
+		printf("%uwaiting%u, ", jwptr->thread->pid, jwptr->pid);
+		jwptr = jwptr->next;
+	}
+	printf("\n");
 	return 0;
 }
 
 //Increases the priority of every thread in each running queue.
 int age() {
+	printf("\naging...\n");
 	thread_node* ptr = scheduler->first_running_queue;
 	while (ptr != NULL) {
 		ptr->thread->priority += 1;
@@ -195,7 +209,6 @@ int age() {
 	printf("Finished with first queue\n");
 	ptr = scheduler->second_running_queue;
 	while (ptr != NULL) {
-		printf("Iterating in second queue\n");
 		ptr->thread->priority += 1;
 		ptr = ptr->next;
 	}
@@ -223,7 +236,7 @@ int swap_contexts() {
 	if (check_queues() == 1) {
 		return 0;
 	}
-	printf("swap contexts\n");
+	printf("\nswap contexts\n");
 	//	If the scheduler is already running, don't do anything
 	if (__sync_lock_test_and_set(&scheduler_running, 1) == 1) {
 		printf("scheduler is running, return\n");
@@ -290,10 +303,12 @@ int swap_contexts() {
 		timer.it_value.tv_usec = 25000;
 		timer.it_interval.tv_usec = 25000;
 		printf("About to release lock for case 1\n");
+		printf("thread %d swapping to thread %d\n", ptr->thread->pid, scheduler->first_running_queue->thread->pid);
+		printf("old ss_sp: %#x\n", ptr->thread->context->uc_stack.ss_sp);
+		printf("new ss_sp: %#x\n", scheduler->first_running_queue->thread->context->uc_stack.ss_sp);
+		printf("size %d size to size %d\n", ptr->thread->context->uc_stack.ss_size, scheduler->first_running_queue->thread->context->uc_stack.ss_size);
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
-		printf("%d swapping to thread %d\n", ptr->thread->pid, scheduler->first_running_queue->thread->pid);
-		printf("%d size to size %d\n", ptr->thread->context->uc_stack.ss_size, scheduler->first_running_queue->thread->context->uc_stack.ss_size);
 		swapcontext(ptr->thread->context, scheduler->first_running_queue->thread->context);
 		break;
 		//		If the second queue has the highest priority thread, switch to that one.
@@ -302,6 +317,10 @@ int swap_contexts() {
 		timer.it_value.tv_usec = 50000;
 		timer.it_interval.tv_usec = 50000;
 		printf("About to release lock for case 2\n");
+		printf("thread %d swapping to thread %d\n", ptr->thread->pid, scheduler->second_running_queue->thread->pid);
+		printf("old ss_sp: %#x\n", ptr->thread->context->uc_stack.ss_sp);
+		printf("new ss_sp: %#x\n", scheduler->second_running_queue->thread->context->uc_stack.ss_sp);
+		printf("size %d size to size %d\n", ptr->thread->context->uc_stack.ss_size, scheduler->second_running_queue->thread->context->uc_stack.ss_size);
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
 		swapcontext(ptr->thread->context, scheduler->second_running_queue->thread->context);
@@ -310,6 +329,10 @@ int swap_contexts() {
 		case 3:
 		scheduler->current_queue_number = 3;
 		printf("About to release lock for case 3\n");
+		printf("thread %d swapping to thread %d\n", ptr->thread->pid, scheduler->third_running_queue->thread->pid);
+		printf("old ss_sp: %#x\n", ptr->thread->context->uc_stack.ss_sp);
+		printf("new ss_sp: %#x\n", scheduler->third_running_queue->thread->context->uc_stack.ss_sp);
+		printf("size %d size to size %d\n", ptr->thread->context->uc_stack.ss_size, scheduler->third_running_queue->thread->context->uc_stack.ss_size);
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
 		swapcontext(ptr->thread->context, scheduler->third_running_queue->thread->context);
@@ -333,7 +356,7 @@ void* test_function(void* arg) {
 /* create a new thread */
 int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg) {
 	//	If the scheduler hasn't been initialized yet, first run, init everything
-	
+
 	/*
 	return_function = malloc(sizeof(ucontext_t));
 	return_function->uc_stack.ss_sp=malloc(5000);
@@ -346,9 +369,9 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	printf("Setting context\n");
 	setcontext(return_function);
 	*/
-	
+
 	if (scheduler == NULL) {
-		printf("making a scheduler\n");
+		printf("\nmaking a scheduler\n");
 		scheduler = malloc(sizeof(tcb));
 		scheduler->current_queue_number = 1;
 		thread_number = 0;
@@ -365,12 +388,12 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		thread_node* main_thread = malloc(sizeof(thread_node));
 		main_thread->thread = malloc(sizeof(my_pthread));
 		main_thread->thread->context = malloc(sizeof(ucontext_t));
+		getcontext(main_thread->thread->context);
 		main_thread->thread->context->uc_stack.ss_sp=malloc(5000);
 		main_thread->thread->context->uc_stack.ss_size=5000;
 		main_thread->thread->context->uc_stack.ss_flags=0;
 		main_thread->thread->pid = thread_number;
 		thread_number++;
-		getcontext(main_thread->thread->context);
 		printf("Adding main to run queue\n");
 		//	If the queue is already being modified, wait for the operation to finish, then continue
 		printf("Lock value is %d\n", modifying_queue);
@@ -383,9 +406,9 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 
 		// set return uc_link to exit()
 		return_function = malloc(sizeof(ucontext_t));
+		getcontext(return_function);
 		return_function->uc_stack.ss_sp=malloc(5000);
 		return_function->uc_stack.ss_size=5000;
-		getcontext(return_function);
 		makecontext(return_function, &my_pthread_exit, 1, arg);
 		printf("Made exit function\n");
 
@@ -398,18 +421,31 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 
 		printf("Initialization complete\n");
 	}
+	//	If there's no timer, create a new timer and set an alarm for every 25 ms
+	if (timer.it_interval.tv_usec == 0) {
+		printf("\nmaking a timer\n");
+		//		Set the signal handler to be the execute function
+		signal (SIGALRM, &swap_contexts);
+		struct itimerval old;
+		timer.it_value.tv_sec = 0;
+		timer.it_value.tv_usec = 25000;
+		timer.it_interval.tv_sec = 0;
+		timer.it_interval.tv_usec = 25000;
+		setitimer(ITIMER_REAL, &timer, &old);
+	}
 
 	// if (return_function == NULL) { // first time running, initialize everything
 	//
 	// }
 	//	Malloc some space and create a new thread
+	printf("\nCreating new thread...\n");
 	thread_node* new_thread = malloc(sizeof(thread_node));
 	new_thread->thread = malloc(sizeof(my_pthread));
 	new_thread->thread->context = malloc(sizeof(ucontext_t));
 	getcontext(new_thread->thread->context);
 	printf("Got context\n");
 	//	Set this linkt to be the swap contexts function
-	new_thread->thread->context->uc_link = return_function;
+	new_thread->thread->context->uc_link = &my_pthread_exit;
 	//	Initializes a stack for the new thread with size 5000 bytes
 	new_thread->thread->context->uc_stack.ss_sp=malloc(5000);
 	new_thread->thread->context->uc_stack.ss_size=5000;
@@ -425,18 +461,6 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 	printf("Made a new context\n");
 	//	Initiate the thread to have priority 100, default for threads in priority level 1.
 	new_thread->thread->priority = 100;
-	//	If there's no timer, create a new timer and set an alarm for every 25 ms
-	if (timer.it_interval.tv_usec == 0) {
-		printf("making a timer\n");
-		//		Set the signal handler to be the execute function
-		signal (SIGALRM, &swap_contexts);
-		struct itimerval old;
-		timer.it_value.tv_sec = 0;
-		timer.it_value.tv_usec = 25000;
-		timer.it_interval.tv_sec = 0;
-		timer.it_interval.tv_usec = 25000;
-		setitimer(ITIMER_REAL, &timer, &old);
-	}
 
 	//	Add the thread to the end of the first run queue.
 	printf("Adding new thread to run queue\n");
@@ -458,6 +482,7 @@ int yield_handler(thread_node* ptr)
 	switch (ptr->thread->yield_purpose) {
 		case 1: {
 			// exit()
+			printf("exit() happened\n");
 			// copy the pid of current thread
 			my_pthread_t exit_pid = ptr->thread->pid;
 			// remove the thread
@@ -491,10 +516,12 @@ int yield_handler(thread_node* ptr)
 			break;
 		}
 		case 2: {
+			printf("join() or mutex_lock() happened\n");
 			// join and mutex_lock()
 			ptr->thread->yield_purpose = 0;
 			break;
 		} case 3: {
+			printf("yield() happened\n");
 			//yield()
 			thread_node* current_running_queue;
 			switch(scheduler->current_queue_number) {
@@ -516,6 +543,7 @@ int yield_handler(thread_node* ptr)
 			ptr->thread->yield_purpose = 0;
 		}
 		default:
+		printf("timeout happened\n");
 		switch(scheduler->current_queue_number) {
 			case 1:
 			ptr->thread->priority = 50;
@@ -540,7 +568,7 @@ int my_pthread_yield() {
 
 /* terminate a thread */
 void my_pthread_exit(void *value_ptr) {
-	printf("Exiting %d from %d\n", get_current_thread()->thread->pid, scheduler->first_running_queue->thread->pid);
+	printf("\nExiting %d from %d\n", get_current_thread()->thread->pid, scheduler->first_running_queue->thread->pid);
 	// lock queue
 	if (__sync_lock_test_and_set(&modifying_queue, 1) == 1)
 	{
@@ -574,13 +602,14 @@ void my_pthread_exit(void *value_ptr) {
 	// set flag to indicate pthread exit
 	get_current_thread()->thread->yield_purpose = 1;
 	// unlock queue
+	printf("exit() finished, going to yield()\n");
 	__sync_lock_release(&modifying_queue);
 	my_pthread_yield();
 };
 
 /* wait for thread termination */
 int my_pthread_join(my_pthread_t thread, void **value_ptr) {
-	printf("Joining\n");
+	printf("\nJoining\n");
 	// lock queue
 	if (__sync_lock_test_and_set(&modifying_queue, 1) == 1)
 	{
@@ -611,6 +640,7 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 	// set flag for scheduler
 	get_current_thread()->thread->yield_purpose = 2;
 	// unlock queue mutex
+	printf("join finished, going to yield()\n");
 	__sync_lock_release(&modifying_queue);
 	my_pthread_yield();
 	//Wait for the other thread to finish executing
@@ -619,12 +649,14 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 
 /* initial the mutex lock */
 int my_pthread_mutex_init(my_pthread_mutex_t *mutex, const pthread_mutexattr_t *mutexattr) {
+	printf("\ncreating new mutex\n");
 	mutex = malloc(sizeof(my_pthread_mutex_t));
 	//	Set the initial lock to be open
 	__sync_lock_release(&(mutex->mutex_lock));
 	//	Set a new mutex id
 	mutex->mid = mutex_id;
 	mutex_id++;
+	printf("mutex %u created\n", mutex->mid);
 	return 0;
 };
 
@@ -634,11 +666,14 @@ int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
 	if (mutex->mid < 0) {
 		return -1;
 	}
+	printf("thread %u LOCKING mutex %u owned by %u ... ", get_current_thread()->thread->pid, mutex->mid, mutex->pid);
 	//	If the mutex is unlocked, then acquire it
 	if (__sync_lock_test_and_set(&(mutex->mutex_lock), 1) == 0) {
 		mutex->pid = get_current_thread()->thread->pid;
+		printf("locked");
 		//	Otherwise, move to the wait queue
 	} else {
+		printf("failed");
 		mutex_waiting_queue_node *new_node = malloc(sizeof(mutex_waiting_queue_node));
 		thread_node* current_thread = get_current_thread();
 		//		Create a new node with a thread equal to the currently running thread
@@ -649,9 +684,11 @@ int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
 		new_node->mutex_lock = mutex->mid;
 		//		Add the thread to the end of the wait queue
 		add_to_mutex_wait_queue(new_node);
+		printf(", thread moved to wait queue");
 		//		Swap contexts
 		my_pthread_yield();
 	}
+	printf("\n");
 	return 0;
 };
 
@@ -661,10 +698,12 @@ int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex) {
 	if (mutex->mid < 0) {
 		return -1;
 	}
+	printf("thread %u UNLOCKING mutex %u owned by %u ... ", get_current_thread()->thread->pid, mutex->mid, mutex->pid);
 	//	If the current thread is holding the lock, then release it
 	if (get_current_thread()->thread->pid == mutex->pid) {
 		__sync_lock_release(&(mutex->mutex_lock));
 		mutex->pid = -1;
+		printf("unlocked");
 		//		Remove all nodes from the wait queue that were waiting for this mutex
 		mutex_waiting_queue_node* ptr = scheduler->mutex_waiting_queue;
 		mutex_waiting_queue_node* prev = NULL;
@@ -673,7 +712,7 @@ int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex) {
 				if (prev == NULL) {
 					scheduler->mutex_waiting_queue = ptr->next;
 				} else {
-					prev->next = ptr;
+					prev->next = ptr->next;
 				}
 				//				Add any nodes that were removed from the wait queue to the end of the run queue
 				thread_node* new_node = malloc(sizeof(thread_node));
@@ -683,20 +722,25 @@ int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex) {
 				}
 				add_to_run_queue_priority_based(new_node);
 				__sync_lock_release(&modifying_queue);
+				printf(", thread %u added to run queue", ptr->thread->pid);
+			} else {
+				prev = ptr;
 			}
-			prev = ptr;
 			ptr = ptr->next;
 		}
 	}
+	printf("\n");
 	return 0;
 };
 
 /* destroy the mutex */
 int my_pthread_mutex_destroy(my_pthread_mutex_t *mutex) {
+	printf("\ndestroying mutex %u\n", mutex->mid);
 	//	Wait for the mutex lock to be released before destroying it
 	if (__sync_lock_test_and_set(&(mutex->mutex_lock), 1) == 1) {
 		//		Set the id to be negative. This means it's not usable.
 		mutex->mid = -1;
 	}
+	printf("mutex destroyed\n");
 	return 0;
 };
