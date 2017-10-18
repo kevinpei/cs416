@@ -108,6 +108,9 @@ int age();
 //A function to swap between contexts, increase priority, and remove nodes from the running queue.
 int swap_contexts();
 
+/* handling thread return without calling exit */
+void thread_return_handler();
+
 /* create a new thread */
 int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg);
 
