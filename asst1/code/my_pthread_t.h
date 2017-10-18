@@ -25,6 +25,11 @@
 
 typedef uint my_pthread_t;
 
+typedef struct pid_list_node_ {
+	my_pthread_t pid;
+	struct pid_list_node_ *next;
+} pid_list_node;
+
 typedef struct my_pthread {
 	ucontext_t* context;
 	int priority;
@@ -63,8 +68,10 @@ typedef struct threadControlBlock {
 	int current_queue_number;
 //	The first wait queue is for threads waiting for a mutex lock
 	mutex_waiting_queue_node* mutex_waiting_queue;
-//	The secon wait queue is for threads waiting to join another thread
+//	The second wait queue is for threads waiting to join another thread
 	join_waiting_queue_node* join_waiting_queue;
+//  The list contains pid of all finished thread
+	pid_list_node *exit_thread_list;
 } tcb;
 
 /* mutex struct definition */
