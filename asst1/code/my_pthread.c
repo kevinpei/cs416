@@ -328,6 +328,17 @@ int swap_contexts() {
 			// setcontext(ptr->thread->context);
 			return 0;
 		}
+		// free space
+		if (ptr->thread->yield_purpose == 1 && ptr->thread->pid != 0)
+		{
+			free(ptr->thread->context->uc_stack.ss_sp);
+			free(ptr->thread->context);
+			free(ptr->thread);
+			free(ptr);
+			__sync_lock_release(&scheduler_running);
+			__sync_lock_release(&modifying_queue);
+			setcontext(scheduler->first_running_queue->thread->context);
+		}
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
 		swapcontext(ptr->thread->context, scheduler->first_running_queue->thread->context);
@@ -351,6 +362,17 @@ int swap_contexts() {
 			// setcontext(ptr->thread->context);
 			return 0;
 		}
+		// free space
+		if (ptr->thread->yield_purpose == 1 && ptr->thread->pid != 0)
+		{
+			free(ptr->thread->context->uc_stack.ss_sp);
+			free(ptr->thread->context);
+			free(ptr->thread);
+			free(ptr);
+			__sync_lock_release(&scheduler_running);
+			__sync_lock_release(&modifying_queue);
+			setcontext(scheduler->second_running_queue->thread->context);
+		}
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
 		swapcontext(ptr->thread->context, scheduler->second_running_queue->thread->context);
@@ -371,6 +393,17 @@ int swap_contexts() {
 			__sync_lock_release(&modifying_queue);
 			// setcontext(ptr->thread->context);
 			return 0;
+		}
+		// free space
+		if (ptr->thread->yield_purpose == 1 && ptr->thread->pid != 0)
+		{
+			free(ptr->thread->context->uc_stack.ss_sp);
+			free(ptr->thread->context);
+			free(ptr->thread);
+			free(ptr);
+			__sync_lock_release(&scheduler_running);
+			__sync_lock_release(&modifying_queue);
+			setcontext(scheduler->third_running_queue->thread->context);
 		}
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
@@ -426,7 +459,9 @@ int yield_handler(thread_node* ptr)
 					}
 					// printf("done\n");
 				}
+				join_waiting_queue_node *tmp = wait_ptr;
 				wait_ptr = wait_ptr->next;
+				free(tmp);
 			}
 			// add pid to finished list
 			pid_list_node *finished_ptr = scheduler->exit_thread_list;
@@ -818,11 +853,14 @@ int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex) {
 				}
 				add_to_run_queue_priority_based(new_node);
 				__sync_lock_release(&modifying_queue);
+				mutex_waiting_queue_node *tmp = ptr;
+				ptr = ptr->next;
+				free(tmp);
 				// printf(", thread %u added to run queue", ptr->thread->pid);
 			} else {
 				prev = ptr;
+				ptr = ptr->next;
 			}
-			ptr = ptr->next;
 		}
 	}
 	// printf("\n");
