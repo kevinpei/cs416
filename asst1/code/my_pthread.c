@@ -312,8 +312,10 @@ int swap_contexts() {
 		//		If the first queue has the highest priority thread, switch to that one.
 		case 1:
 		scheduler->current_queue_number = 1;
-		timer.it_value.tv_usec = 25000;
-		timer.it_interval.tv_usec = 25000;
+		getitimer(ITIMER_VIRTUAL, &timer);
+		timer.it_value.tv_usec = 250;
+		timer.it_interval.tv_usec = 250;
+		setitimer(ITIMER_VIRTUAL, &timer, NULL);
 		// printf("About to release lock, next running queue: 1\n");
 		// printf("thread %d swapping to thread %d\n", ptr->thread->pid, scheduler->first_running_queue->thread->pid);
 		// printf("old ss_sp: %#x\n", ptr->thread->context->uc_stack.ss_sp);
@@ -346,8 +348,10 @@ int swap_contexts() {
 		//		If the second queue has the highest priority thread, switch to that one.
 		case 2:
 		scheduler->current_queue_number = 2;
-		timer.it_value.tv_usec = 50000;
-		timer.it_interval.tv_usec = 50000;
+		getitimer(ITIMER_VIRTUAL, &timer);
+		timer.it_value.tv_usec = 5000;
+		timer.it_interval.tv_usec = 5000;
+		setitimer(ITIMER_VIRTUAL, &timer, NULL);
 		// printf("About to release lock, next running queue: 2\n");
 		// printf("thread %d swapping to thread %d\n", ptr->thread->pid, scheduler->second_running_queue->thread->pid);
 		// printf("old ss_sp: %#x\n", ptr->thread->context->uc_stack.ss_sp);
@@ -380,6 +384,10 @@ int swap_contexts() {
 		//		If the third queue has the highest priority thread, switch to that one.
 		case 3:
 		scheduler->current_queue_number = 3;
+		getitimer(ITIMER_VIRTUAL, &timer);
+		timer.it_value.tv_usec = 0;
+		timer.it_interval.tv_usec = 0;
+		setitimer(ITIMER_VIRTUAL, &timer, NULL);
 		// printf("About to release lock, next running queue: 3\n");
 		// printf("thread %d swapping to thread %d\n", ptr->thread->pid, scheduler->third_running_queue->thread->pid);
 		// printf("old ss_sp: %#x\n", ptr->thread->context->uc_stack.ss_sp);
@@ -615,12 +623,12 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 		// printf("\nmaking a timer\n");
 		//		Set the signal handler to be the execute function
 		signal (SIGVTALRM, (void(*)(int))&swap_contexts);
-		struct itimerval old;
+		getitimer(ITIMER_VIRTUAL, &timer);
 		timer.it_value.tv_sec = 0;
 		timer.it_value.tv_usec = 25000;
 		timer.it_interval.tv_sec = 0;
 		timer.it_interval.tv_usec = 25000;
-		setitimer(ITIMER_VIRTUAL, &timer, &old);
+		setitimer(ITIMER_VIRTUAL, &timer, NULL);
 	}
 
 	// if (return_function == NULL) { // first time running, initialize everything
