@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <time.h>
 
 #include <pthread.h>
 
@@ -101,6 +102,7 @@ void sig_handler(int signum) {
 }
 
 int main(int argc, char **argv) {
+	
 	int i = 0;
 
 	if (argc == 1) {

@@ -163,51 +163,6 @@ if (scheduler->third_running_queue != NULL) {
 return highest_priority_queue;
 }
 
-int read_queues() {
-	thread_node* testptr = scheduler->first_running_queue;
-	printf("\nQueue 1 threads: ");
-	while (testptr != NULL) {
-		printf("%d ", testptr->thread->pid);
-		testptr = testptr->next;
-	}
-	testptr = scheduler->second_running_queue;
-	printf("\nQueue 2 threads: ");
-	while (testptr != NULL) {
-		printf("%d ", testptr->thread->pid);
-		testptr = testptr->next;
-	}
-	testptr = scheduler->third_running_queue;
-	printf("\nQueue 3 threads: ");
-	while (testptr != NULL) {
-		printf("%d ", testptr->thread->pid);
-		testptr = testptr->next;
-	}
-
-	mutex_waiting_queue_node *mwptr = scheduler->mutex_waiting_queue;
-	printf("\nmutex_waiting_queue: ");
-	while (mwptr != NULL) {
-		printf("%uwaiting%u, ", mwptr->thread->pid, mwptr->mutex_lock);
-		mwptr = mwptr->next;
-	}
-
-	join_waiting_queue_node *jwptr = scheduler->join_waiting_queue;
-	printf("\njoin_waiting_queue_node: ");
-	while (jwptr != NULL) {
-		printf("%uwaiting%u, ", jwptr->thread->pid, jwptr->pid);
-		jwptr = jwptr->next;
-	}
-
-	pid_list_node *exit_ptr = scheduler->exit_thread_list;
-	printf("\nexit_thread_list: ");
-	while (exit_ptr != NULL) {
-		printf("%d ", exit_ptr->pid);
-		exit_ptr = exit_ptr->next;
-	}
-
-	printf("\n");
-	return 0;
-}
-
 //Increases the priority of every thread in each running queue.
 int age() {
 	// printf("\naging...\n");
@@ -331,10 +286,10 @@ int swap_contexts() {
 		// free space
 		if (ptr->thread->yield_purpose == 1 && ptr->thread->pid != 0)
 		{
-			free(ptr->thread->context->uc_stack.ss_sp);
+			/*free(ptr->thread->context->uc_stack.ss_sp);
 			free(ptr->thread->context);
 			free(ptr->thread);
-			free(ptr);
+			free(ptr);*/
 			__sync_lock_release(&scheduler_running);
 			__sync_lock_release(&modifying_queue);
 			setcontext(scheduler->first_running_queue->thread->context);
@@ -365,10 +320,10 @@ int swap_contexts() {
 		// free space
 		if (ptr->thread->yield_purpose == 1 && ptr->thread->pid != 0)
 		{
-			free(ptr->thread->context->uc_stack.ss_sp);
+			/*free(ptr->thread->context->uc_stack.ss_sp);
 			free(ptr->thread->context);
 			free(ptr->thread);
-			free(ptr);
+			free(ptr);*/
 			__sync_lock_release(&scheduler_running);
 			__sync_lock_release(&modifying_queue);
 			setcontext(scheduler->second_running_queue->thread->context);
@@ -380,6 +335,9 @@ int swap_contexts() {
 		//		If the third queue has the highest priority thread, switch to that one.
 		case 3:
 		scheduler->current_queue_number = 3;
+		//Turn off the timer
+		timer.it_value.tv_usec = 0;
+		timer.it_interval.tv_usec = 0;
 		// printf("About to release lock, next running queue: 3\n");
 		// printf("thread %d swapping to thread %d\n", ptr->thread->pid, scheduler->third_running_queue->thread->pid);
 		// printf("old ss_sp: %#x\n", ptr->thread->context->uc_stack.ss_sp);
@@ -397,10 +355,10 @@ int swap_contexts() {
 		// free space
 		if (ptr->thread->yield_purpose == 1 && ptr->thread->pid != 0)
 		{
-			free(ptr->thread->context->uc_stack.ss_sp);
+			/*free(ptr->thread->context->uc_stack.ss_sp);
 			free(ptr->thread->context);
 			free(ptr->thread);
-			free(ptr);
+			free(ptr);*/
 			__sync_lock_release(&scheduler_running);
 			__sync_lock_release(&modifying_queue);
 			setcontext(scheduler->third_running_queue->thread->context);
@@ -461,7 +419,7 @@ int yield_handler(thread_node* ptr)
 				}
 				join_waiting_queue_node *tmp = wait_ptr;
 				wait_ptr = wait_ptr->next;
-				free(tmp);
+				//free(tmp);
 			}
 			// add pid to finished list
 			pid_list_node *finished_ptr = scheduler->exit_thread_list;
@@ -559,7 +517,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 
 	if (scheduler == NULL) {
 		// printf("\nmaking a scheduler\n");
-		atexit(&clean_up);
+//		atexit(&clean_up);
 		scheduler = malloc(sizeof(tcb));
 		scheduler->current_queue_number = 1;
 		thread_number = 0;
@@ -856,7 +814,7 @@ int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex) {
 				__sync_lock_release(&modifying_queue);
 				mutex_waiting_queue_node *tmp = ptr;
 				ptr = ptr->next;
-				free(tmp);
+				//free(tmp);
 				// printf(", thread %u added to run queue", ptr->thread->pid);
 			} else {
 				prev = ptr;
@@ -885,6 +843,7 @@ int my_pthread_mutex_destroy(my_pthread_mutex_t *mutex) {
 	return 0;
 };
 
+/*
 void clean_up()
 {
 	// no multi thread
@@ -976,3 +935,4 @@ void clean_up()
 
 	free(scheduler);
 }
+*/

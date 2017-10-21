@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include <pthread.h>
+#include <time.h>
 
 #include "../my_pthread_t.h"
 
@@ -90,6 +91,6 @@ int main(int argc, char **argv) {
 	// Free memory on Heap
 	free(thread);
 	free(counter);
-
+	
 	return 0;
 }
