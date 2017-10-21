@@ -76,6 +76,7 @@ typedef struct threadControlBlock {
 
 /* mutex struct definition */
 typedef struct my_pthread_mutex_t {
+	int initialized;
 	my_pthread_t pid;
 	int mutex_lock;
 	uint mid;

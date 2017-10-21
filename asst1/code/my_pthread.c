@@ -735,11 +735,16 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr) {
 /* initial the mutex lock */
 int my_pthread_mutex_init(my_pthread_mutex_t *mutex, const pthread_mutexattr_t *mutexattr) {
 	// printf("\ncreating new mutex\n");
-	mutex = malloc(sizeof(my_pthread_mutex_t));
+	// printf("addr before allocation: %#x\n", mutex);
+	// mutex = (my_pthread_mutex_t *) malloc(sizeof(my_pthread_mutex_t));
+	mutex->initialized = 1;
+	// printf("mutex allocated, addr: %#x\n", mutex);
 	//	Set the initial lock to be open
 	__sync_lock_release(&(mutex->mutex_lock));
 	//	Set a new mutex id
 	mutex->mid = mutex_id;
+	// mutex->mid = 12345;
+	// printf("mid: %d, lock status: %d\n", mutex->mid, mutex->mutex_lock);
 	mutex_id++;
 	// printf("mutex %u created\n", mutex->mid);
 	return 0;
@@ -747,8 +752,11 @@ int my_pthread_mutex_init(my_pthread_mutex_t *mutex, const pthread_mutexattr_t *
 
 /* aquire the mutex lock */
 int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
+	// printf("locking mutex, addr: %#x\n", mutex);
+	// printf("mid: %d, lock status: %d\n", mutex->mid, mutex->mutex_lock);
 	//	All mutexes are initialized with positive id's - if it's negative, then it's been destroyed.
-	if (mutex->mid < 0) {
+	// if (mutex->mid < 0) {
+	if (mutex->initialized != 1) {
 		return -1;
 	}
 	// printf("thread %u LOCKING mutex %u ... ", get_current_thread()->thread->pid, mutex->mid);
@@ -779,8 +787,11 @@ int my_pthread_mutex_lock(my_pthread_mutex_t *mutex) {
 
 /* release the mutex lock */
 int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex) {
+	// printf("unlocking mutex, addr: %#x\n", mutex);
+	// printf("mid: %d, lock status: %d\n", mutex->mid, mutex->mutex_lock);
 	//	All mutexes are initialized with positive id's - if it's negative, then it's been destroyed.
-	if (mutex->mid < 0) {
+	// if (mutex->mid < 0) {
+	if (mutex->initialized != 1) {
 		return -1;
 	}
 	// printf("thread %u UNLOCKING mutex %u owned by %u ... ", get_current_thread()->thread->pid, mutex->mid, mutex->pid);
@@ -821,11 +832,21 @@ int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex) {
 /* destroy the mutex */
 int my_pthread_mutex_destroy(my_pthread_mutex_t *mutex) {
 	// printf("\ndestroying mutex %u\n", mutex->mid);
+	// printf("mid: %d, lock status: %d\n", mutex->mid, mutex->mutex_lock);
+	// printf("addr: %#x\n", mutex);
 	//	Wait for the mutex lock to be released before destroying it
-	if (__sync_lock_test_and_set(&(mutex->mutex_lock), 1) == 1) {
+	while (__sync_lock_test_and_set(&(mutex->mutex_lock), 1) == 1) {
 		//		Set the id to be negative. This means it's not usable.
-		mutex->mid = -1;
+		// mutex->mid = -1;
 	}
+	// mutex->mid = -1;
+	// free(mutex);
+	mutex->initialized = 0;
 	// printf("mutex destroyed\n");
 	return 0;
 };
+
+void clean_up()
+{
+
+}
