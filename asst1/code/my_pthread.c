@@ -134,33 +134,33 @@ int get_highest_priority() {
 
 	//Don't need to lock, the only time this function is called is inside the scheduler
 	/*while (__sync_lock_test_and_set(&modifying_queue, 1) == 1) {
-		int placeholder = 0;
-	}*/
-	//	If no queue has any elements, return 0
-	int highest_priority = 0;
-	int highest_priority_queue = 0;
-	//	If the first queue isn't empty, then it is the highest so far
-	if (scheduler->first_running_queue != NULL) {
-		highest_priority = scheduler->first_running_queue->thread->priority;
-		highest_priority_queue = 1;
+	int placeholder = 0;
+}*/
+//	If no queue has any elements, return 0
+int highest_priority = 0;
+int highest_priority_queue = 0;
+//	If the first queue isn't empty, then it is the highest so far
+if (scheduler->first_running_queue != NULL) {
+	highest_priority = scheduler->first_running_queue->thread->priority;
+	highest_priority_queue = 1;
+}
+//	Compare the priority of the first element in the second queue
+if (scheduler->second_running_queue != NULL) {
+	if (scheduler->second_running_queue->thread->priority > highest_priority) {
+		highest_priority = scheduler->second_running_queue->thread->priority;
+		highest_priority_queue = 2;
 	}
-	//	Compare the priority of the first element in the second queue
-	if (scheduler->second_running_queue != NULL) {
-		if (scheduler->second_running_queue->thread->priority > highest_priority) {
-			highest_priority = scheduler->second_running_queue->thread->priority;
-			highest_priority_queue = 2;
-		}
+}
+//	Compare the priority of the first element in the third queue
+if (scheduler->third_running_queue != NULL) {
+	if (scheduler->third_running_queue->thread->priority > highest_priority) {
+		highest_priority = scheduler->third_running_queue->thread->priority;
+		highest_priority_queue = 3;
 	}
-	//	Compare the priority of the first element in the third queue
-	if (scheduler->third_running_queue != NULL) {
-		if (scheduler->third_running_queue->thread->priority > highest_priority) {
-			highest_priority = scheduler->third_running_queue->thread->priority;
-			highest_priority_queue = 3;
-		}
-	}
-	//	Return the highest priority queue number
-	//__sync_lock_release(&modifying_queue);
-	return highest_priority_queue;
+}
+//	Return the highest priority queue number
+//__sync_lock_release(&modifying_queue);
+return highest_priority_queue;
 }
 
 int read_queues() {
@@ -529,13 +529,13 @@ int yield_handler(thread_node* ptr)
 
 /*
 void* test_function(void* arg) {
-	printf("this is a test %d\n", (int)arg);
-	return arg;
+printf("this is a test %d\n", (int)arg);
+return arg;
 }
 */
 
 // void thread_return_handler() {
-	// printf("\nWARNING: thread return without exit\n");
+// printf("\nWARNING: thread return without exit\n");
 // 	read_queues();
 // 	my_pthread_exit(malloc(128));
 // }
@@ -559,6 +559,7 @@ int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*func
 
 	if (scheduler == NULL) {
 		// printf("\nmaking a scheduler\n");
+		atexit(&clean_up);
 		scheduler = malloc(sizeof(tcb));
 		scheduler->current_queue_number = 1;
 		thread_number = 0;
@@ -886,5 +887,92 @@ int my_pthread_mutex_destroy(my_pthread_mutex_t *mutex) {
 
 void clean_up()
 {
+	// no multi thread
+	if (scheduler == NULL) {
+		return;
+	}
 
+	// clean up first_running_queue
+	thread_node *ptr = scheduler->first_running_queue;
+	thread_node *prev = NULL;
+	while (ptr != NULL) {
+		prev = ptr;
+		ptr = ptr->next;
+		if (prev->thread->pid != 0) {
+			free(prev->thread->context->uc_stack.ss_sp);
+		}
+		free(prev->thread->context);
+		free(prev->thread);
+		free(prev);
+	}
+
+	// clean up second_running_queue
+	ptr = scheduler->second_running_queue;
+	prev = NULL;
+	while (ptr != NULL) {
+		prev = ptr;
+		ptr = ptr->next;
+		if (prev->thread->pid != 0) {
+			free(prev->thread->context->uc_stack.ss_sp);
+		}
+		free(prev->thread->context);
+		free(prev->thread);
+		free(prev);
+	}
+
+	// clean up third_running_queue
+	ptr = scheduler->third_running_queue;
+	prev = NULL;
+	while (ptr != NULL) {
+		prev = ptr;
+		ptr = ptr->next;
+		if (prev->thread->pid != 0) {
+			free(prev->thread->context->uc_stack.ss_sp);
+		}
+		free(prev->thread->context);
+		free(prev->thread);
+		free(prev);
+	}
+
+	// clean up mutex_waiting_queue
+	mutex_waiting_queue_node *mwptr = scheduler->mutex_waiting_queue;
+	mutex_waiting_queue_node *mwprev = NULL;
+	while (mwptr != NULL) {
+		mwprev = mwptr;
+		mwptr = mwptr->next;
+		if (mwprev->thread->pid != 0) {
+			free(mwprev->thread->context->uc_stack.ss_sp);
+		}
+		free(mwprev->thread->context);
+		free(mwprev->thread);
+		free(mwprev);
+	}
+
+	// clean up join_waiting_queue
+	join_waiting_queue_node *jwptr = scheduler->join_waiting_queue;
+	join_waiting_queue_node *jwprev = NULL;
+	while (jwptr != NULL) {
+		jwprev = jwptr;
+		jwptr = jwptr->next;
+		if (jwprev->thread->pid != 0) {
+			free(jwprev->thread->context->uc_stack.ss_sp);
+		}
+		free(jwprev->thread->context);
+		free(jwprev->thread);
+		free(jwprev);
+	}
+
+	// clean up exit_thread_list
+	pid_list_node *plptr = scheduler->exit_thread_list;
+	pid_list_node *plprev = NULL;
+	while (plptr != NULL) {
+		plprev = plptr;
+		plptr = plptr->next;
+		free(plprev);
+	}
+
+	free(return_function->uc_stack.ss_sp);
+	free(return_function);
+
+	free(scheduler);
 }
