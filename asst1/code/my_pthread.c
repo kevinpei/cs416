@@ -197,6 +197,7 @@ int check_queues() {
 
 //Swaps contexts between the current thread and the thread with the highest priority
 int swap_contexts() {
+	struct itimerval old;
 	//If there are no running threads, then just exit
 	if (check_queues() == 1) {
 		return 0;
@@ -206,6 +207,7 @@ int swap_contexts() {
 	if (__sync_lock_test_and_set(&modifying_queue, 1) == 1) {
 		// printf("someone modifying the queue, return for now, come back soon\n");
 		timer.it_interval.tv_usec = 1000;
+		setitimer(ITIMER_VIRTUAL, &timer, &old);
 		return 0;
 	}
 	//	If the scheduler is already running, don't do anything
@@ -269,6 +271,7 @@ int swap_contexts() {
 		scheduler->current_queue_number = 1;
 		timer.it_value.tv_usec = 25000;
 		timer.it_interval.tv_usec = 25000;
+		setitimer(ITIMER_VIRTUAL, &timer, &old);
 		// printf("About to release lock, next running queue: 1\n");
 		// printf("thread %d swapping to thread %d\n", ptr->thread->pid, scheduler->first_running_queue->thread->pid);
 		// printf("old ss_sp: %#x\n", ptr->thread->context->uc_stack.ss_sp);
@@ -303,6 +306,7 @@ int swap_contexts() {
 		scheduler->current_queue_number = 2;
 		timer.it_value.tv_usec = 50000;
 		timer.it_interval.tv_usec = 50000;
+		setitimer(ITIMER_VIRTUAL, &timer, &old);
 		// printf("About to release lock, next running queue: 2\n");
 		// printf("thread %d swapping to thread %d\n", ptr->thread->pid, scheduler->second_running_queue->thread->pid);
 		// printf("old ss_sp: %#x\n", ptr->thread->context->uc_stack.ss_sp);
@@ -338,6 +342,7 @@ int swap_contexts() {
 		//Turn off the timer
 		timer.it_value.tv_usec = 0;
 		timer.it_interval.tv_usec = 0;
+		setitimer(ITIMER_VIRTUAL, &timer, &old);
 		// printf("About to release lock, next running queue: 3\n");
 		// printf("thread %d swapping to thread %d\n", ptr->thread->pid, scheduler->third_running_queue->thread->pid);
 		// printf("old ss_sp: %#x\n", ptr->thread->context->uc_stack.ss_sp);
