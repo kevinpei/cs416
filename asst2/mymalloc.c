@@ -6,7 +6,8 @@ static boolean memInit = FALSE;
 static char memoryblock[memorySize]; 
 // Represents the array of pointers to the start of each thread page.
 static MemoryData** threadPage; 
-static int pageSize = sysconf( _SC_PAGE_SIZE);
+int pageSize;
+int pageNumber;
 
 /*
 This function initializes main memory by creating as many thread pages as will fit in main memory.
@@ -14,19 +15,21 @@ Each thread pages has free size equal to the page size minus the size of the met
 Each of these thread pages begins completely free.
 */
 boolean initialize() {
+	pageSize = ( _SC_PAGE_SIZE);
 	//Calculates the max number of thread pages that can be stored in main memory.
-	int pageNumber = memorySize/pageSize;
+	pageNumber = memorySize/pageSize;
 	int x = 0;
 	// Creates a representation of each thread page as a struct
 	while (x < pageNumber) {
-		*(threadPage + x) = (MemoryData *)((char *)memoryblock + x * pageSize);
+		threadPage[x] = (MemoryData *)((char *)memoryblock + x * pageSize);
 		// The size of the memory that is available left for use is this size   
-		*(threadPage + x)->size = pageSize - sizeof(MemoryData); 
-		*(threadPage + x)->isFree = TRUE;
-		*(threadPage + x)->next = NULL;
-		*(threadPage + x)->prev = NULL;
+		threadPage[x]->size = pageSize - sizeof(MemoryData); 
+		threadPage[x]->isFree = TRUE;
+		threadPage[x]->next = NULL;
+		threadPage[x]->prev = NULL;
 		// A pid of -1 means that it isn't being used right now by any thread
-		*(threadPage + x)->pid = -1;
+		threadPage[x]->pid = -1;
+		x++;
 	}
 	return TRUE;
 }
@@ -34,13 +37,13 @@ boolean initialize() {
 //A function to find the memory page with the given pid.
 //You can use pid = -1 to find the first free page, since pages are initialized with pid -1.
 MemoryData* findPage(int pid) {
-	MemoryData** ptr = threadPage;
+	int x = 0;
 	//Iterate through the array of thread pages until one with given pid is found.
-	while (ptr != NULL) {
-		if (*(ptr)->pid == pid) {
-			return *ptr;
+	while (x < pageNumber) {
+		if (threadPage[x]->pid == pid) {
+			return threadPage[x];
 		}
-		ptr = (ptr + 1);
+		x++;
 	}
 	//If a page with the given pid doesn't exist, return NULL.
 	return NULL;
@@ -67,7 +70,7 @@ MemoryData* findFirstFree(int size, MemoryData * start) {
 This function is a custom malloc function that takes an int size as an input and returns a void * pointer to 
 the start of an empty memory block. Depending on the currently executing thread, a different memory block may be used.
 */
-void * mymalloc(int size, char* myfile, int line, int req) {
+void * myallocate(int size, char* myfile, int line, int req) {
 	
 	MemoryData* firstFreeAddress; 
 	int pid = get_current_thread()->thread->pid;
@@ -85,7 +88,7 @@ void * mymalloc(int size, char* myfile, int line, int req) {
 		firstFreeAddress = *threadPage;
 		memInit = TRUE;
 	} else {	
-		firstPage = findPage(pid);
+		MemoryData* firstPage = findPage(pid);
 		//If there is no page with the given pid, then find the first free thread page (pid -1)
 		if (firstPage == NULL) {
 			firstPage = findPage(-1);
@@ -142,11 +145,12 @@ void * mymalloc(int size, char* myfile, int line, int req) {
 	}				 
 }
 
-void myfree(void * mementry, char * myfile, int line) {
+void mydeallocate(void * mementry, char * myfile, int line, int req) {
 	
 	// We start the pointer at mainMemory, which is the start of the char array.
+	int pid = get_current_thread()->thread->pid;
 	
-	MemoryData* ptr = mainMemory;
+	MemoryData* ptr = findPage(pid);
 	
 	// Goes through the linked list of memory blocks until it reaches one whose address matches the address of the freed variable
 	while (ptr != NULL) {

@@ -24,8 +24,8 @@ typedef struct _MemoryData {
 //Function prototypes
 boolean initialize();
 MemoryData* findFirstFree(int size, MemoryData * start);
-void * mymalloc(int size, char* myfile, int line);
-void myfree(void * mementry, char * myfile, int line);
+void * myallocate(int size, char* myfile, int line, int req);
+void mydeallocate(void * mementry, char * myfile, int line, int req);
 
 //Library constants
 int THREADREQ;
