@@ -4,7 +4,7 @@
 
 #define malloc(x) myallocate(x, __FILE__, __LINE__, THREADREQ)
 #define	free(x) mydeallocate(x, __FILE__, __LINE__, THREADREQ)
-#define memorySize 8192
+#define memorySize 8000000
 #define FALSE 0
 #define TRUE 1
 #define boolean char
