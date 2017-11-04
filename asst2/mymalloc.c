@@ -4,8 +4,6 @@ static boolean memInit = FALSE;
 
 // Big block of memory that represents main memory.
 static char memoryblock[memorySize]; 
-// Represents the array of pointers to the start of each thread page.
-static MemoryData** threadPage; 
 int pageSize;
 int pageNumber;
 
@@ -21,14 +19,14 @@ boolean initialize() {
 	int x = 0;
 	// Creates a representation of each thread page as a struct
 	while (x < pageNumber) {
-		threadPage[x] = (MemoryData *)((char *)memoryblock + x * pageSize);
+		MemoryData* threadPage = (MemoryData *)((char *)memoryblock + x * pageSize);
 		// The size of the memory that is available left for use is this size   
-		threadPage[x]->size = pageSize - sizeof(MemoryData); 
-		threadPage[x]->isFree = TRUE;
-		threadPage[x]->next = NULL;
-		threadPage[x]->prev = NULL;
+		threadPage->size = pageSize - sizeof(MemoryData); 
+		threadPage->isFree = TRUE;
+		threadPage->next = NULL;
+		threadPage->prev = NULL;
 		// A pid of -1 means that it isn't being used right now by any thread
-		threadPage[x]->pid = -1;
+		threadPage->pid = -1;
 		x++;
 	}
 	return TRUE;
@@ -40,8 +38,8 @@ MemoryData* findPage(int pid) {
 	int x = 0;
 	//Iterate through the array of thread pages until one with given pid is found.
 	while (x < pageNumber) {
-		if (threadPage[x]->pid == pid) {
-			return threadPage[x];
+		if (((MemoryData *)((char *)memoryblock + x * pageSize))->pid == pid) {
+			return (MemoryData *)((char *)memoryblock + x * pageSize);
 		}
 		x++;
 	}
@@ -85,7 +83,7 @@ void * myallocate(int size, char* myfile, int line, int req) {
 	if(memInit == FALSE) {
 		initialize(); 
 		//If memory has just been initialized, the first free thread page will be the first one.
-		firstFreeAddress = *threadPage;
+		firstFreeAddress = (MemoryData*)memoryblock;
 		memInit = TRUE;
 	} else {	
 		MemoryData* firstPage = findPage(pid);
