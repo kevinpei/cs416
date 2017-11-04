@@ -6,7 +6,7 @@
 // username of iLab:
 // iLab Server:
 
-#include "my_pthread_t.h"
+#include "mymalloc.h"
 
 //A function to add a given thread node to the end of the given running queue
 int add_to_run_queue(int num, thread_node* node) {

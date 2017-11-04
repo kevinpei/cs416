@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include "my_pthread_t.h"
 
 #define malloc(x) myallocate(x, __FILE__, __LINE__, THREADREQ)
 #define	free(x) mydeallocate(x, __FILE__, __LINE__, THREADREQ)
@@ -16,6 +17,7 @@ typedef struct _MemoryData {
 	struct _MemoryData * next;
 	struct _MemoryData * prev; 
 	short int size;
+	short int pid;
 	boolean isFree; 
 }MemoryData; 
 

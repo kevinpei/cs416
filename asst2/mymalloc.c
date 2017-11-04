@@ -4,23 +4,30 @@ static boolean memInit = FALSE;
 
 // Big block of memory that represents main memory.
 static char memoryblock[memorySize]; 
-// Represents the start of main memory.
-static MemoryData* mainMemory; 
+// Represents the array of pointers to the start of each thread page.
+static MemoryData** threadPage; 
 static int pageSize = sysconf( _SC_PAGE_SIZE);
 
 /*
-This function initializes main memory by creating a metadata MemoryData* pointer.
-Its size is equal to the size of main memory minus the size needed to store metadata and its next and prev are NULL.
-Main memory begins completely free.
+This function initializes main memory by creating as many thread pages as will fit in main memory.
+Each thread pages has free size equal to the page size minus the size of the metadata.
+Each of these thread pages begins completely free.
 */
 boolean initialize() {
-	// Creates a representation of main memory as a struct
-	mainMemory = (MemoryData *)memoryblock; 
-	// The size of the memory that is available left for use is this size   
-    mainMemory->size = memorySize - sizeof(MemoryData); 
-	mainMemory->isFree = TRUE; //
-	mainMemory->next = NULL;
-	mainMemory->prev = NULL;
+	//Calculates the max number of thread pages that can be stored in main memory.
+	int pageNumber = memorySize/pageSize;
+	int x = 0;
+	// Creates a representation of each thread page as a struct
+	while (x < pageNumber) {
+		*(threadPage + x) = (MemoryData *)((char)memoryblock + x * pageSize);
+		// The size of the memory that is available left for use is this size   
+		*(threadPage + x)->size = pageSize - sizeof(MemoryData); 
+		*(threadPage + x)->isFree = TRUE;
+		*(threadPage + x)->next = NULL;
+		*(threadPage + x)->prev = NULL;
+		// A pid of -1 means that it isn't being used right now by any thread
+		*(threadPage + x)->pid = -1;
+	}
 	return TRUE;
 }
 
