@@ -19,7 +19,7 @@ boolean initialize() {
 	int x = 0;
 	// Creates a representation of each thread page as a struct
 	while (x < pageNumber) {
-		*(threadPage + x) = (MemoryData *)((char)memoryblock + x * pageSize);
+		*(threadPage + x) = (MemoryData *)((char *)memoryblock + x * pageSize);
 		// The size of the memory that is available left for use is this size   
 		*(threadPage + x)->size = pageSize - sizeof(MemoryData); 
 		*(threadPage + x)->isFree = TRUE;
@@ -29,6 +29,21 @@ boolean initialize() {
 		*(threadPage + x)->pid = -1;
 	}
 	return TRUE;
+}
+
+//A function to find the memory page with the given pid.
+//You can use pid = -1 to find the first free page, since pages are initialized with pid -1.
+MemoryData* findPage(int pid) {
+	MemoryData** ptr = threadPage;
+	//Iterate through the array of thread pages until one with given pid is found.
+	while (ptr != NULL) {
+		if (*(ptr)->pid == pid) {
+			return *ptr;
+		}
+		ptr = (ptr + 1);
+	}
+	//If a page with the given pid doesn't exist, return NULL.
+	return NULL;
 }
 
 /*
@@ -50,11 +65,12 @@ MemoryData* findFirstFree(int size, MemoryData * start) {
 
 /*
 This function is a custom malloc function that takes an int size as an input and returns a void * pointer to 
-the start of an empty memory block.
+the start of an empty memory block. Depending on the currently executing thread, a different memory block may be used.
 */
 void * mymalloc(int size, char* myfile, int line, int req) {
 	
 	MemoryData* firstFreeAddress; 
+	int pid = get_current_thread()->thread->pid;
 	
 	//If the attempted allocated size is 0 or negative, print an error message and return NULL.
 	if(size <= 0) { 
@@ -65,10 +81,21 @@ void * mymalloc(int size, char* myfile, int line, int req) {
 	// If memory hasn't been initialized yet, then initialize it. Otherwise, call findFirstFree.
 	if(memInit == FALSE) {
 		initialize(); 
-		firstFreeAddress = mainMemory;
+		//If memory has just been initialized, the first free thread page will be the first one.
+		firstFreeAddress = *threadPage;
 		memInit = TRUE;
 	} else {	
-		firstFreeAddress = findFirstFree(size,mainMemory);
+		firstPage = findPage(pid);
+		//If there is no page with the given pid, then find the first free thread page (pid -1)
+		if (firstPage == NULL) {
+			firstPage = findPage(-1);
+		}
+		//If there is no page with pid -1, meaning there are no free pages, then return NULL; there is no space left
+		if (firstPage == NULL) {
+			return NULL;
+		}
+		//Find the first free address in that thread page
+		firstFreeAddress = findFirstFree(size,firstPage);
 	}
 		
 	// This means that we have enough space in "main memory" to allocate
@@ -89,7 +116,7 @@ void * mymalloc(int size, char* myfile, int line, int req) {
 			firstFreeAddress->next = newFree;		
 		/*
 		If next is not null, then we need to check to make sure there's enough space beween the two memory blocks to create another metadata.
-		If not, then we can't create another free memory block between the two. If there is enough spacec, then we create newFree.
+		If not, then we can't create another free memory block between the two. If there is enough space, then we create newFree.
 		*/
 		} else if(firstFreeAddress->size - size > sizeof(MemoryData) && firstFreeAddress->next != NULL) { 
 			MemoryData* newFree = (MemoryData *)((char *) firstFreeAddress + sizeof(MemoryData) + size);
@@ -102,9 +129,10 @@ void * mymalloc(int size, char* myfile, int line, int req) {
 			newFree->isFree = TRUE;
 			firstFreeAddress->next = newFree;
 		}
-		// Regardless of whether a new free memory block is created, set the size of firstFreeAddress and set it to not free.
+		// Regardless of whether a new free memory block is created, set the size of firstFreeAddress, set it to not free, and set the pid to the current thread.
 		firstFreeAddress->size = size;
 		firstFreeAddress->isFree = FALSE;
+		firstFreeAddress->pid = pid;
 		// Return the address of the data after the metadata.
 		return (char*)firstFreeAddress + sizeof(MemoryData);
 	} else {
@@ -166,6 +194,11 @@ void myfree(void * mementry, char * myfile, int line) {
 			
 			// After checking to make sure all adjacent memory blocks are merged, set the block's isFree to TRUE.
 			ptr->isFree = TRUE;
+			//If the free size is equal to page size minus the metadata size, this means that the thread is no longer storing anything
+			//Make the thread page free for another thread to store in
+			if (ptr->size == pageSize - sizeof(MemoryData)) {
+				ptr->pid = -1;
+			}
 			return;
 		}
 		// Iterate through the linked list of memory blocks.
