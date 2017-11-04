@@ -6,6 +6,7 @@ static boolean memInit = FALSE;
 static char memoryblock[memorySize]; 
 // Represents the start of main memory.
 static MemoryData* mainMemory; 
+static int pageSize = sysconf( _SC_PAGE_SIZE);
 
 /*
 This function initializes main memory by creating a metadata MemoryData* pointer.
@@ -44,7 +45,7 @@ MemoryData* findFirstFree(int size, MemoryData * start) {
 This function is a custom malloc function that takes an int size as an input and returns a void * pointer to 
 the start of an empty memory block.
 */
-void * mymalloc(int size, char* myfile, int line) {
+void * mymalloc(int size, char* myfile, int line, int req) {
 	
 	MemoryData* firstFreeAddress; 
 	
