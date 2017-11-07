@@ -14,14 +14,16 @@ Each of these thread pages begins completely free.
 */
 boolean initialize() {
 	pageSize = ( _SC_PAGE_SIZE);
+	metaSize = sizeof(struct _MemoryData);
 	//Calculates the max number of thread pages that can be stored in main memory.
-	pageNumber = memorySize/pageSize;
+	pageNumber = memorySize/(pageSize+metaSize);
 	int x = 0;
 	// Creates a representation of each thread page as a struct
 	while (x < pageNumber) {
-		MemoryData* threadPage = (MemoryData *)((char *)memoryblock + x * pageSize);
+		MemoryData* threadPage = (MemoryData *)((char *)memoryblock + x * metaSize); //put all metadata in the front of the memoryblock
 		// The size of the memory that is available left for use is this size   
-		threadPage->size = pageSize - sizeof(MemoryData); 
+		threadPage->memAddr = (MemoryData *)((char *)memoryblock + pageNumber * metaSize + x * pageSize);//in each metadata it stores where the addr of the real memory block
+		threadPage->size = pageSize; 
 		threadPage->isFree = TRUE;
 		threadPage->next = NULL;
 		threadPage->prev = NULL;
