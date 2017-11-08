@@ -38,7 +38,7 @@ boolean initialize() {
 
 //A function to find the memory page with the given pid.
 //You can use pid = -1 to find the first free page, since pages are initialized with pid -1.
-MemoryData* findPage(int pid) {
+PageData* findPage(int pid) {
 	int x = 0;
 	//Iterate through the array of thread pages until one with given pid is found.
 	while (x < pageNumber) {
@@ -46,7 +46,7 @@ MemoryData* findPage(int pid) {
 		if (((PageData *)((char *)memoryblock + x * pageSize))->isContinuous == FALSE) {
 			if (((PageData *)((char *)memoryblock + x * pageSize))->pid == pid) {
 				//Return the address of the metadata of the page
-				return (PageData *)((char *)memoryblock + x * pageSize)->pageStart;
+				return (PageData *)((char *)memoryblock + x * pageSize);
 			}
 			x++;
 		}
@@ -99,7 +99,10 @@ void * myallocate(int size, char* myfile, int line, int req) {
 		MemoryData* firstPage = findPage(pid);
 		//If there is no page with the given pid, then find the first free thread page (pid -1)
 		if (firstPage == NULL) {
-			firstPage = findPage(-1);
+			PageData* emptyPage;
+			emptyPage = findPage(-1);
+			emptyPage->pid = pid;
+			firstPage = emptyPage->pageStart;
 		}
 		//If there is no page with pid -1, meaning there are no free pages, then return NULL; there is no space left
 		if (firstPage == NULL) {
@@ -143,7 +146,6 @@ void * myallocate(int size, char* myfile, int line, int req) {
 		// Regardless of whether a new free memory block is created, set the size of firstFreeAddress, set it to not free, and set the pid to the current thread.
 		firstFreeAddress->size = size;
 		firstFreeAddress->isFree = FALSE;
-		firstFreeAddress->pid = pid;
 		// Return the address of the data after the metadata.
 		return (char*)firstFreeAddress + sizeof(MemoryData);
 	} else {
@@ -158,8 +160,12 @@ void mydeallocate(void * mementry, char * myfile, int line, int req) {
 	// We start the pointer at mainMemory, which is the start of the char array.
 	int pid = get_current_thread()->thread->pid;
 	
-	MemoryData* ptr = findPage(pid);
-	
+	PageData* threadPage = findPage(pid);
+	//No page exists with that pid. Trying to free non-malloced memory. Seg fault.
+	if (threadPage == NULL) {
+		return;
+	}
+	MemoryData* ptr = threadPage->firstPage;
 	// Goes through the linked list of memory blocks until it reaches one whose address matches the address of the freed variable
 	while (ptr != NULL) {
 
@@ -209,7 +215,7 @@ void mydeallocate(void * mementry, char * myfile, int line, int req) {
 			//If the free size is equal to page size minus the metadata size, this means that the thread is no longer storing anything
 			//Make the thread page free for another thread to store in
 			if (ptr->size == pageSize - sizeof(MemoryData)) {
-				ptr->pid = -1;
+				threadPage->pid = -1;
 			}
 			return;
 		}
