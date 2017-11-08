@@ -74,6 +74,20 @@ MemoryData* findFirstFree(int size, MemoryData * start) {
 }
 
 /*
+This function swaps the contents of two pages. Used to make thread pages contiguous in memory when a thread has multiple pages.
+*/
+void swapPages(int firstStartAddress, int secondStartAddress) {
+	char tempArray[pageSize];
+	int i = 0;
+	while (i < pageSize) {
+		tempArray[i] = memoryblock[firstStartAddress + i];
+		memoryblock[firstStartAddress + i] = memoryblock[secondStartAddress + i];
+		memoryblock[secondStartAddress + i] = tempArray[i];
+		i++;
+	}
+}
+
+/*
 This function is a custom malloc function that takes an int size as an input and returns a void * pointer to 
 the start of an empty memory block. Depending on the currently executing thread, a different memory block may be used.
 */
