@@ -92,7 +92,8 @@ void * myallocate(int size, char* myfile, int line, int req) {
 	if(memInit == FALSE) {
 		initialize(); 
 		//If memory has just been initialized, the first free thread page will be the first one.
-		firstFreeAddress = (MemoryData*)memoryblock;
+		firstFreeAddress = (MemoryData*)((PageData*)memoryblock)->pageStart;
+		((PageData*)memoryblock)->pid = pid;
 		memInit = TRUE;
 	} else {	
 		MemoryData* firstPage = findPage(pid);
