@@ -15,12 +15,10 @@ pid of the thread using this page and whether it's garbage or not. notGarbage is
 likely not to be 1 (not garbage) than if it was a smaller data type.
 */
 typedef struct _PageData {
-	struct _MemoryData * next;
-	short int size;
+	struct _MemoryData* pageStart;
 	short int pid;
-	boolean isFree;
-	int notGarbage;
-	
+	char isContinuous;
+	struct _PageData* next;
 }PageData;
 
 /*

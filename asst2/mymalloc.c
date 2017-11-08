@@ -14,21 +14,23 @@ Each of these thread pages begins completely free.
 */
 boolean initialize() {
 	pageSize = ( _SC_PAGE_SIZE);
-	metaSize = sizeof(struct _MemoryData);
+	metaSize = sizeof(PageData);
 	//Calculates the max number of thread pages that can be stored in main memory.
 	pageNumber = memorySize/(pageSize+metaSize);
 	int x = 0;
 	// Creates a representation of each thread page as a struct
 	while (x < pageNumber) {
-		MemoryData* threadPage = (MemoryData *)((char *)memoryblock + x * metaSize); //put all metadata in the front of the memoryblock
+		PageData* threadPage = (PageData *)((char *)memoryblock + x * metaSize); //put all metadata in the front of the memoryblock
 		// The size of the memory that is available left for use is this size   
-		threadPage->memAddr = (MemoryData *)((char *)memoryblock + pageNumber * metaSize + x * pageSize);//in each metadata it stores where the addr of the real memory block
-		threadPage->size = pageSize; 
-		threadPage->isFree = TRUE;
-		threadPage->next = NULL;
-		threadPage->prev = NULL;
+		threadPage->pageStart = (MemoryData *)((char *)memoryblock + pageNumber * metaSize + x * pageSize);//in each metadata it stores where the addr of the real memory block
+		threadPage->pageStart->size = pageSize; 
+		threadPage->pageStart->isFree = TRUE;
+		threadPage->pageStart->next = NULL;
+		threadPage->pageStart->prev = NULL;
 		// A pid of -1 means that it isn't being used right now by any thread
 		threadPage->pid = -1;
+		threadPage->next = NULL;
+		threadPage->isContinuous = FALSE;
 		x++;
 	}
 	return TRUE;
@@ -40,10 +42,15 @@ MemoryData* findPage(int pid) {
 	int x = 0;
 	//Iterate through the array of thread pages until one with given pid is found.
 	while (x < pageNumber) {
-		if (((MemoryData *)((char *)memoryblock + x * pageSize))->pid == pid) {
-			return (MemoryData *)((char *)memoryblock + x * pageSize);
+		//Ignore any pages that are continuous - those won't have valid metadata and are being used by another thread
+		if (((PageData *)((char *)memoryblock + x * pageSize))->isContinuous == FALSE) {
+			if (((PageData *)((char *)memoryblock + x * pageSize))->pid == pid) {
+				//Return the address of the metadata of the page
+				return (PageData *)((char *)memoryblock + x * pageSize)->pageStart;
+			}
+			x++;
 		}
-		x++;
+		
 	}
 	//If a page with the given pid doesn't exist, return NULL.
 	return NULL;
