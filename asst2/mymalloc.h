@@ -10,6 +10,20 @@
 #define boolean char
 
 /*
+PageData includes a next pointer to point to the next memory block. It is the same as MemoryData except that it must store the
+pid of the thread using this page and whether it's garbage or not. notGarbage is an int because if it's overwritten it's more
+likely not to be 1 (not garbage) than if it was a smaller data type.
+*/
+typedef struct _PageData {
+	struct _MemoryData * next;
+	short int size;
+	short int pid;
+	boolean isFree;
+	int notGarbage;
+	
+}PageData;
+
+/*
 MemoryData include next and prev pointers in order to merge adjacent free memory blocks both forwards and backwards.
 size tracks how many non-metadata bytes are available for storage. isFree tracks whether the memory block is free or in use.
 */
@@ -17,7 +31,6 @@ typedef struct _MemoryData {
 	struct _MemoryData * next;
 	struct _MemoryData * prev; 
 	short int size;
-	short int pid;
 	boolean isFree; 
 }MemoryData; 
 
