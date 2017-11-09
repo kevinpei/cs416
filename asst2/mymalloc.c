@@ -88,6 +88,61 @@ void swapPages(int firstStartAddress, int secondStartAddress) {
 }
 
 /*
+A function to get the pageData that corresponds to the given page starting address.
+*/
+PageData* getPageFromAddress(int address) {
+	int x = 0;
+	while (x < pageNumber) {
+		if (((PageData *)((char *)memoryblock + x * sizeof(PageData))->pageStart == address) {
+			return (PageData *)((char *)memoryblock + x * sizeof(PageData));
+		}
+		x++;
+	}
+	return NULL;
+}
+
+/*
+A function to return all pages to their starting positions. Called whenever a thread is switched out.
+*/
+void resetPages() {
+	int x = 0;
+	while (x < pageNumber) {
+		PageData* page = (PageData *)((char *)memoryblock + x * sizeof(PageData));
+		if (page->pageStart != page->currentPage) {
+			int temp = page->currentPage;
+			swapPages(page->pageStart, page->currentPage);
+			page->currentPage = page->pageStart;
+			getPageFromAddress(page->currentPage)->currentPage = temp;
+		}
+		x++;
+	}
+}
+
+/*
+A function to set all pages of the given thread to the beginning of memory. Called whenever a thread is swapped in.
+*/
+void setPagesAtFront(int pid) {
+	int x = 0;
+	while (x < pageNumber) {
+		PageData* page = (PageData *)((char *)memoryblock + x * sizeof(PageData));
+		if (page->pid == pid) {
+			int i = 0;
+			//Iterate through all pages owned by a thread and put them successively at the front of the pages.
+			while (page->next != NULL) {
+				ithPage = (PageData *)((char *)memoryblock + i * sizeof(PageData));
+				swapPages(ithPage->startPage, page->startPage);
+				ithPage->currentLocation = page->startPage;
+				page->currentLocation = ithPage->startPage;
+				page = page->next;
+				i++;
+			}
+			return;
+		}
+		x++;
+	}
+}
+
+/*
 This function is a custom malloc function that takes an int size as an input and returns a void * pointer to 
 the start of an empty memory block. Depending on the currently executing thread, a different memory block may be used.
 */
@@ -176,7 +231,11 @@ void * myallocate(int size, char* myfile, int line, int req) {
 					ptr = ptr->next;
 				}
 				ptr->next = emptyPage;
-				firstFreeAddress->size = firstFreeAddress->size + pageSize;
+				//Swap the page after the last page in the thread and the empty page, then update their locations in the metadata
+				swapPages(ptr->startPage + pageSize, emptyPage->startPage);
+				getPageFromAddress(ptr->startPage + pageSize)->currentPage = emptyPage->startPage;
+				emptyPage->currentPage = ptr->startPage + pageSize;
+				firstFreeAddress->size += pageSize;
 			}
 
 		}
