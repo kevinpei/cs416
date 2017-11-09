@@ -93,6 +93,7 @@ the start of an empty memory block. Depending on the currently executing thread,
 */
 void * myallocate(int size, char* myfile, int line, int req) {
 	
+	PageData* threadPage;
 	MemoryData* firstFreeAddress; 
 	int pid = get_current_thread()->thread->pid;
 	
@@ -106,24 +107,23 @@ void * myallocate(int size, char* myfile, int line, int req) {
 	if(memInit == FALSE) {
 		initialize(); 
 		//If memory has just been initialized, the first free thread page will be the first one.
-		firstFreeAddress = (MemoryData*)((PageData*)memoryblock)->pageStart;
-		((PageData*)memoryblock)->pid = pid;
+		threadPage = (PageData*)memoryblock;
+		threadPage->pid = pid;
 		memInit = TRUE;
 	} else {	
-		MemoryData* firstPage = findPage(pid);
+		threadPage = findPage(pid);
 		//If there is no page with the given pid, then find the first free thread page (pid -1)
-		if (firstPage == NULL) {
-			PageData* emptyPage;
-			emptyPage = findPage(-1);
-			emptyPage->pid = pid;
-			firstPage = emptyPage->pageStart;
+		if (threadPage == NULL) {
+			threadPage = findPage(-1);
 		}
 		//If there is no page with pid -1, meaning there are no free pages, then return NULL; there is no space left
-		if (firstPage == NULL) {
+		if (threadPage == NULL) {
 			return NULL;
+		}  else {
+			threadPage->pid = pid;
 		}
 		//Find the first free address in that thread page
-		firstFreeAddress = findFirstFree(size,firstPage);
+		firstFreeAddress = findFirstFree(size,threadPage->pageStart);
 	}
 		
 	// This means that we have enough space in "main memory" to allocate
@@ -156,6 +156,29 @@ void * myallocate(int size, char* myfile, int line, int req) {
 			newFree->prev = firstFreeAddress;
 			newFree->isFree = TRUE;
 			firstFreeAddress->next = newFree;
+		}
+		/*
+		If next is null and there's not enough space for the malloc, then try to allocate another empty page to this process.
+		*/
+		else if (firstFreeAddress->size < size + sizeof(MemoryData) && firstFreeAddress->next == NULL){
+			while (firstFreeAddress->size < size + sizeof(MemoryData)) {
+				PageData* emptyPage;
+				emptyPage = findPage(-1);
+				//If there are no empty pages, then there is not enough memory left. Return null.
+				if (emptyPage == NULL) {
+					return NULL;
+				}
+				//The page is now continuous with another one and the metadata can be overwritten. Additionally, other threads can't use this page.
+				emptyPage->continuous = 1;
+				PageData* ptr = threadPage;
+				//Add the new page to the end of the linked list of continuous pages started by this thread
+				while (ptr != NULL) {
+					ptr = ptr->next;
+				}
+				ptr->next = emptyPage;
+				firstFreeAddress->size = firstFreeAddress->size + pageSize;
+			}
+
 		}
 		// Regardless of whether a new free memory block is created, set the size of firstFreeAddress, set it to not free, and set the pid to the current thread.
 		firstFreeAddress->size = size;

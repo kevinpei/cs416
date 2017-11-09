@@ -15,7 +15,10 @@ pid of the thread using this page and whether it's garbage or not. notGarbage is
 likely not to be 1 (not garbage) than if it was a smaller data type.
 */
 typedef struct _PageData {
+	//Stores where the memory is supposed to start
 	struct _MemoryData* pageStart;
+	//Stores where the memory actually starts
+	struct _MemoryData* currentLocation;
 	short int pid;
 	char isContinuous;
 	struct _PageData* next;
