@@ -93,7 +93,7 @@ A function to get the pageData that corresponds to the given page starting addre
 PageData* getPageFromAddress(int address) {
 	int x = 0;
 	while (x < pageNumber) {
-		if (((PageData *)((char *)memoryblock + x * sizeof(PageData))->pageStart == address) {
+		if (((PageData *)((char *)memoryblock + x * sizeof(PageData))->currentLocation == address) {
 			return (PageData *)((char *)memoryblock + x * sizeof(PageData));
 		}
 		x++;
@@ -308,10 +308,19 @@ void mydeallocate(void * mementry, char * myfile, int line, int req) {
 			
 			// After checking to make sure all adjacent memory blocks are merged, set the block's isFree to TRUE.
 			ptr->isFree = TRUE;
-			//If the free size is equal to page size minus the metadata size, this means that the thread is no longer storing anything
-			//Make the thread page free for another thread to store in
-			if (ptr->size == pageSize - sizeof(MemoryData)) {
-				threadPage->pid = -1;
+			//If the free size is greater than or equal to page size minus the metadata size, this means that the last page is no longer storing anything
+			//Make the thread page free for another thread to store in. Continue until all pages that are empty are freed for other threads.
+			while (ptr->size >= pageSize - sizeof(MemoryData) {
+				PageData* pageptr = threadPage;
+				PageData* pageprev = NULL;
+				while (pageptr->next != NULL) {
+					pageprev = pageptr;
+					pageptr = pageptr->next;
+				}
+				pageptr->continuous = 0;
+				pageptr->pid = -1;
+				pageprev->next = NULL;
+				ptr->size -= pageSize;
 			}
 			return;
 		}
