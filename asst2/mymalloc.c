@@ -4,7 +4,7 @@ static boolean memInit = FALSE;
 
 // Big block of memory that represents main memory.
 static char memoryblock[memorySize]; 
-int pageSize;
+int pageSize, metaSize;
 int pageNumber;
 
 /*
@@ -92,8 +92,10 @@ A function to get the pageData that corresponds to the given page starting addre
 */
 PageData* getPageFromAddress(int address) {
 	int x = 0;
-	while (x < pageNumber) {
-		if (((PageData *)((char *)memoryblock + x * sizeof(PageData))->currentLocation == address) {
+	while (x < pageNumber)
+    {
+		if (((PageData *)((char *)memoryblock + x * sizeof(PageData))->currentLocation == address))
+        {
 			return (PageData *)((char *)memoryblock + x * sizeof(PageData));
 		}
 		x++;
@@ -129,10 +131,10 @@ void setPagesAtFront(int pid) {
 			int i = 0;
 			//Iterate through all pages owned by a thread and put them successively at the front of the pages.
 			while (page->next != NULL) {
-				ithPage = (PageData *)((char *)memoryblock + i * sizeof(PageData));
-				swapPages(ithPage->startPage, page->startPage);
-				ithPage->currentLocation = page->startPage;
-				page->currentLocation = ithPage->startPage;
+				PageData* ithPage = (PageData *)((char *)memoryblock + i * sizeof(PageData));
+				swapPages(ithPage->pageStart, page->pageStart);
+				ithPage->currentPage = page->pageStart;
+				page->currentPage = ithPage->pageStart;
 				page = page->next;
 				i++;
 			}
@@ -224,7 +226,7 @@ void * myallocate(int size, char* myfile, int line, int req) {
 					return NULL;
 				}
 				//The page is now continuous with another one and the metadata can be overwritten. Additionally, other threads can't use this page.
-				emptyPage->continuous = 1;
+				emptyPage->isContinuous = 1;
 				PageData* ptr = threadPage;
 				//Add the new page to the end of the linked list of continuous pages started by this thread
 				while (ptr != NULL) {
@@ -232,9 +234,9 @@ void * myallocate(int size, char* myfile, int line, int req) {
 				}
 				ptr->next = emptyPage;
 				//Swap the page after the last page in the thread and the empty page, then update their locations in the metadata
-				swapPages(ptr->startPage + pageSize, emptyPage->startPage);
-				getPageFromAddress(ptr->startPage + pageSize)->currentPage = emptyPage->startPage;
-				emptyPage->currentPage = ptr->startPage + pageSize;
+				swapPages(ptr->pageStart + pageSize, emptyPage->pageStart);
+				getPageFromAddress(ptr->pageStart + pageSize)->currentPage = emptyPage->pageStart;
+				emptyPage->currentPage = ptr->pageStart + pageSize;
 				firstFreeAddress->size += pageSize;
 			}
 
@@ -261,11 +263,13 @@ void mydeallocate(void * mementry, char * myfile, int line, int req) {
 	if (threadPage == NULL) {
 		return;
 	}
-	MemoryData* ptr = threadPage->firstPage;
+	MemoryData* ptr = threadPage->pageStart;
 	// Goes through the linked list of memory blocks until it reaches one whose address matches the address of the freed variable
-	while (ptr != NULL) {
+	while (ptr != NULL)
+    {
 
-		if (mementry - sizeof(MemoryData) == ptr && ptr->isFree == FALSE) {
+		if (mementry - sizeof(MemoryData) == ptr && ptr->isFree == FALSE)
+        {
 			/* 
 			This code will also merge adjacent free memory blocks, so it checks to see if the next memory block is NULL or not.
 			We do not need to iterate through a while loop because this check will take place after every free, ensuring that every
@@ -310,7 +314,7 @@ void mydeallocate(void * mementry, char * myfile, int line, int req) {
 			ptr->isFree = TRUE;
 			//If the free size is greater than or equal to page size minus the metadata size, this means that the last page is no longer storing anything
 			//Make the thread page free for another thread to store in. Continue until all pages that are empty are freed for other threads.
-			while (ptr->size >= pageSize - sizeof(MemoryData) {
+			while (ptr->size >= pageSize - sizeof(MemoryData)) {
 				PageData* pageptr = threadPage;
 				PageData* pageprev = NULL;
 				while (pageptr->next != NULL) {
