@@ -321,7 +321,7 @@ void mydeallocate(void * mementry, char * myfile, int line, int req) {
 					pageprev = pageptr;
 					pageptr = pageptr->next;
 				}
-				pageptr->continuous = 0;
+				pageptr->isContinuous = 0;
 				pageptr->pid = -1;
 				pageprev->next = NULL;
 				ptr->size -= pageSize;
