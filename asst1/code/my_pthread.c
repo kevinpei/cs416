@@ -181,13 +181,6 @@ int get_highest_priority()
 	if (scheduler->second_running_queue != NULL)
 	{
 		thread_node *ptr = scheduler->second_running_queue;
-		printf("second running queue: ");
-		while (ptr != NULL)
-		{
-			printf("%u, ", ptr->thread->pid);
-			ptr = ptr->next;
-		}
-		printf("\n");
 		if (scheduler->second_running_queue->thread->priority > highest_priority)
 		{
 			highest_priority = scheduler->second_running_queue->thread->priority;
@@ -321,6 +314,7 @@ int swap_contexts()
 		return 0;
 	}
 
+	// read_queues();
 	thread_node *ptr;
 	thread_node *current_running_queue;
 	//	Depending on which run queue was running, change the priority of the current thread
@@ -857,6 +851,8 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr)
 	join_waiting_queue_node *new_node = (join_waiting_queue_node *)malloc(sizeof(join_waiting_queue_node));
 	new_node->thread = get_current_thread()->thread;
 	new_node->pid = thread;
+	new_node->value_pointer = NULL;
+	new_node->next = NULL;
 	// printf("Setting value ptr\n");
 	new_node->value_pointer = value_ptr;
 	// printf("Finished making new node\n");
@@ -933,6 +929,7 @@ int my_pthread_mutex_lock(my_pthread_mutex_t *mutex)
 		current_thread->thread->yield_purpose = 2;
 		//		Set the mutex id the thread is waiting for
 		new_node->mutex_lock = mutex->mid;
+		new_node->next = NULL;
 		//		Add the thread to the end of the wait queue
 		add_to_mutex_wait_queue(new_node);
 		// printf(", thread moved to wait queue");
@@ -1024,7 +1021,7 @@ int my_pthread_mutex_destroy(my_pthread_mutex_t *mutex)
 
 void clean_up()
 {
-	printf("clean_up() ... \n");
+	// printf("clean_up() ... \n");
 
 	// no multi thread
 	if (scheduler == NULL)
