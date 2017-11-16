@@ -1,11 +1,19 @@
 #include "mymalloc.h"
+#include <stdio.h>
+#include <string.h>
 
 static boolean memInit = FALSE;
 
 // Big block of memory that represents main memory.
-static char memoryblock[memorySize]; 
+static char memoryblock[memorySize];
+static char swapblock1[memorySize], swapblock2[memorySize];
 int pageSize, metaSize;
 int pageNumber;
+int mainMemAllocated, swap1Allocated, swap2Allocated;
+
+mainMemAllocated = 0;
+swap1Allocated = 0;
+swap2Allocated = 0;
 
 /*
 This function initializes main memory by creating as many thread pages as will fit in main memory.
@@ -13,6 +21,7 @@ Each thread pages has free size equal to the page size minus the size of the met
 Each of these thread pages begins completely free.
 */
 boolean initialize() {
+    
 	pageSize = ( _SC_PAGE_SIZE);
 	metaSize = sizeof(PageData);
 	//Calculates the max number of thread pages that can be stored in main memory.
@@ -34,6 +43,31 @@ boolean initialize() {
 		x++;
 	}
 	return TRUE;
+}
+
+void swap_pages() {
+    mprotect(memoryblock, PAGE_SIZE, PROT_READ|PROT_WRITE);
+    
+    if(mainMemAllocated = 1)
+    {
+        if(swap1Allocated != 1)
+        {
+            memcpy(swapblock1, memoryblock, memorySize);
+            swap1Allocated = 1;
+            mprotect(swapblock1, memorySize, PROT_NONE);
+            
+        }
+        else
+        {
+            memcpy(swapblock2, memoryblock, memorySize);
+            swap2Allocated = 1;
+            mprotect(swapblock2, memorySize, PROT_NONE);
+            
+        }
+        mainMemAllocated = 0;
+
+    }
+
 }
 
 //A function to find the memory page with the given pid.
