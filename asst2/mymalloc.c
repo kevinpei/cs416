@@ -6,10 +6,9 @@ static boolean memInit = FALSE;
 
 // Big block of memory that represents main memory.
 static char memoryblock[memorySize];
-static char swapblock1[memorySize], swapblock2[memorySize];
 int pageSize, metaSize;
 int pageNumber;
-int mainMemAllocated, swap1Allocated, swap2Allocated;
+int mainMemAllocated;
 
 mainMemAllocated = 0;
 swap1Allocated = 0;
@@ -27,6 +26,24 @@ boolean initialize() {
 	//Calculates the max number of thread pages that can be stored in main memory.
 	pageNumber = memorySize/(pageSize+metaSize);
 	int x = 0;
+	int swapfile = open("./swapfile.txt", O_CREAT | O_RDWR);
+	//Create the initial swap file by filling it with pagedata followed immediately by data
+	while (x < pageNumber * 2) {
+		PageData* threadPage = (PageData *)((char *)memoryblock);
+		// The size of the memory that is available left for use is this size   
+		threadPage->pageStart->size = pageSize; 
+		threadPage->pageStart->isFree = TRUE;
+		threadPage->pageStart->next = NULL;
+		threadPage->pageStart->prev = NULL;
+		// A pid of -1 means that it isn't being used right now by any thread
+		threadPage->pid = -1;
+		threadPage->next = NULL;
+		threadPage->isContinuous = FALSE;
+		write(swapfile, memoryblock, pageSize + metaSize);
+		x++;
+	}
+	close(swapfile);
+	x = 0;
 	// Creates a representation of each thread page as a struct
 	while (x < pageNumber) {
 		PageData* threadPage = (PageData *)((char *)memoryblock + x * metaSize); //put all metadata in the front of the memoryblock
@@ -42,32 +59,9 @@ boolean initialize() {
 		threadPage->isContinuous = FALSE;
 		x++;
 	}
+	x = 0;
+	
 	return TRUE;
-}
-
-void swap_pages() {
-    mprotect(memoryblock, PAGE_SIZE, PROT_READ|PROT_WRITE);
-    
-    if(mainMemAllocated = 1)
-    {
-        if(swap1Allocated != 1)
-        {
-            memcpy(swapblock1, memoryblock, memorySize);
-            swap1Allocated = 1;
-            mprotect(swapblock1, memorySize, PROT_NONE);
-            
-        }
-        else
-        {
-            memcpy(swapblock2, memoryblock, memorySize);
-            swap2Allocated = 1;
-            mprotect(swapblock2, memorySize, PROT_NONE);
-            
-        }
-        mainMemAllocated = 0;
-
-    }
-
 }
 
 //A function to find the memory page with the given pid.
@@ -82,11 +76,46 @@ PageData* findPage(int pid) {
 				//Return the address of the metadata of the page
 				return (PageData *)((char *)memoryblock + x * pageSize);
 			}
-			x++;
 		}
+		x++;
 		
 	}
 	//If a page with the given pid doesn't exist, return NULL.
+	return NULL;
+}
+
+//A function to find a page in the swapfile with this pid. Needs the pid and the starting address
+//of the pageData corresponding to the page being swapped out.
+PageData* findSwapPage(int pid, int pageData) {
+	x = 0;
+	//Store each pagedata and data
+	char threadblock[pageSize + sizeof(PageData)];
+	int swapfile = open("./swapfile.txt", O_RDWR);
+	//Iterate through the array of thread pages in the swapfile util one with the given pid is found
+	while (x < pageNumber * 2) {
+		read(swapfile, threadblock, sizeof(PageData) + pageSize);
+		//Page must be non-continuous
+		if ((PageData*)threadblock->isContinuous == FALSE){
+			//If we find a page in the swap file with the right pid
+			if ((PageData*)threadblock->pid == pid){
+				lseek(swapfile, x * (pageSize + sizeof(PageData)), SEEK_SET);
+				//Copy the stuff in the swap file into the temp
+				char temp[pageSize + sizeof(pageData)];
+				read(swapfile, (void*)temp, pageSize + sizeof(pageData));
+				lseek(swapfile, x * (pageSize + sizeof(PageData)), SEEK_SET);
+				//Write the pagedata from the swap file to the appropriate page
+				write(swapfile, (char*)memoryblock + pageData, sizeof(PageData));
+				//Write the data from the swap file to the current page of the pagedata that was overwritten
+				write(swapfile, (PageData*)((char*)memoryblock + pageData)->currentPage, pageSize);
+				//Return the pagedata corresponding to the data that was swapped in
+				close(swapfile);
+				return (PageData*)((char*)memoryblock + pageData);
+			}
+		}
+		x++;
+		lseek(swapfile, x * (pageSize + sizeof(PageData)), SEEK_SET);
+	}
+	close(swapfile);
 	return NULL;
 }
 
@@ -126,8 +155,10 @@ A function to get the pageData that corresponds to the given page starting addre
 */
 PageData* getPageFromAddress(int address) {
 	int x = 0;
+	//Iterate through all pages
 	while (x < pageNumber)
     {
+		//If the current location of the page is the address given as input, then return the metadata corresponding to that page
 		if (((PageData *)((char *)memoryblock + x * sizeof(PageData))->currentLocation == address))
         {
 			return (PageData *)((char *)memoryblock + x * sizeof(PageData));
@@ -141,9 +172,11 @@ PageData* getPageFromAddress(int address) {
 A function to return all pages to their starting positions. Called whenever a thread is switched out.
 */
 void resetPages() {
-	int x = 0;
+	int x = 0;.
+	//Iterate through all pages
 	while (x < pageNumber) {
 		PageData* page = (PageData *)((char *)memoryblock + x * sizeof(PageData));
+		//If the page isn't in the position it started in, then swap it with the page that is
 		if (page->pageStart != page->currentPage) {
 			int temp = page->currentPage;
 			swapPages(page->pageStart, page->currentPage);
@@ -172,6 +205,10 @@ void setPagesAtFront(int pid) {
 				page = page->next;
 				i++;
 			}
+			//Protect the metadata at the beginning
+			mprotect(memoryblock, pageNumber * sizeof(PageData), PROT_READ|PROT_WRITE);
+			//Protect all memory beyond the continuous memory set aside
+			mprotect(memoryblock + pageNumber * sizeof(PageData) + i * pageSize, (pageNumber - i) * pageSize, PROT_READ|PROT_WRITE);
 			return;
 		}
 		x++;
@@ -183,6 +220,11 @@ This function is a custom malloc function that takes an int size as an input and
 the start of an empty memory block. Depending on the currently executing thread, a different memory block may be used.
 */
 void * myallocate(int size, char* myfile, int line, int req) {
+	
+	//Can't allocate more memory than the size of main memory
+	if (size > pageNumber * pageSize) {
+		return NULL;
+	}
 	
 	PageData* threadPage;
 	MemoryData* firstFreeAddress; 
@@ -209,10 +251,18 @@ void * myallocate(int size, char* myfile, int line, int req) {
 		}
 		//If there is no page with pid -1, meaning there are no free pages, then return NULL; there is no space left
 		if (threadPage == NULL) {
+			//Placeholder. Will replace the 30th pagedata with swap file page.
+			threadPage = findSwapPage(pid, sizeof(PageData) * 30);
+		}  
+		//If there is no swap page with the given pid, then find the first free swap file thread page (pid -1)
+		if (threadPage == NULL) {
+			threadPage = findSwapPage(-1, sizeof(PageData) * 30);
+		} 
+		//If there are no empty swap page pagedatas, then memory is full
+		if (threadPage == NULL) {
 			return NULL;
-		}  else {
-			threadPage->pid = pid;
 		}
+		threadPage->pid = pid;
 		//Find the first free address in that thread page
 		firstFreeAddress = findFirstFree(size,threadPage->pageStart);
 	}
@@ -255,6 +305,10 @@ void * myallocate(int size, char* myfile, int line, int req) {
 			while (firstFreeAddress->size < size + sizeof(MemoryData)) {
 				PageData* emptyPage;
 				emptyPage = findPage(-1);
+				//If there are no empty pages, then check the swap file
+				if (emptyPage == NULL) {
+					emptyPage = findSwapPage(-1, sizeof(PageData) * 30);
+				}
 				//If there are no empty pages, then there is not enough memory left. Return null.
 				if (emptyPage == NULL) {
 					return NULL;
@@ -293,6 +347,10 @@ void mydeallocate(void * mementry, char * myfile, int line, int req) {
 	int pid = get_current_thread()->thread->pid;
 	
 	PageData* threadPage = findPage(pid);
+	//Check the swap file for the pid
+	if (threadPage == NULL) {
+		threadPage = findSwapPage(pid, sizeof(PageData) * 30);
+	}
 	//No page exists with that pid. Trying to free non-malloced memory. Seg fault.
 	if (threadPage == NULL) {
 		return;
