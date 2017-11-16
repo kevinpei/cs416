@@ -4,7 +4,7 @@
 
 #define malloc(x) myallocate(x, __FILE__, __LINE__, THREADREQ)
 #define	free(x) mydeallocate(x, __FILE__, __LINE__, THREADREQ)
-#define memorySize 8388608
+#define memorySize 8000000
 #define FALSE 0
 #define TRUE 1
 #define boolean char
@@ -17,11 +17,11 @@ likely not to be 1 (not garbage) than if it was a smaller data type.
 typedef struct _PageData {
 	//Stores where the memory is supposed to start
 	struct _MemoryData* pageStart;
-	//Stores where the memory actually starts
-	struct _MemoryData* currentPage;
-	short int pid;
+	unsigned short int pid;
+	unsigned short int pageid;
 	char isContinuous;
-	struct _PageData* next;
+	//page id of the next page data in the continuous page
+	short int next;
 }PageData;
 
 /*
@@ -31,7 +31,7 @@ size tracks how many non-metadata bytes are available for storage. isFree tracks
 typedef struct _MemoryData {
 	struct _MemoryData * next;
 	struct _MemoryData * prev; 
-	short int size;
+	unsigned short int size;
 	boolean isFree; 
 }MemoryData; 
 
