@@ -3,40 +3,43 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+// #include <stdbool.h>
 
 static boolean memInit = FALSE;
 
 // Big block of memory that represents main memory.
-static char memoryblock[memorySize];
-int pageSize = 4000, metaSize = 1000;
+static char memoryblock[MEMORY_SIZE];
+// const int PAGE_SIZE = 4000, META_SIZE = 1000;
 int pageNumber;
-int mainMemAllocated;
+// int mainMemAllocated;
 
-mainMemAllocated = 0;
-swap1Allocated = 0;
-swap2Allocated = 0;
+boolean mainMemAllocated = FALSE;
+boolean swap1Allocated = FALSE;
+boolean swap2Allocated = FALSE;
 
 /*
 This function initializes main memory by creating as many thread pages as will fit in main memory.
 Each thread pages has free size equal to the page size minus the size of the metadata.
 Each of these thread pages begins completely free.
 */
-boolean initialize() {
-    
-	// pageSize = ( _SC_PAGE_SIZE);
-	// metaSize = metaSize;
+boolean initialize()
+{
+
+	// PAGE_SIZE = (_SC_PAGE_SIZE);
+	// META_SIZE = META_SIZE;
 	//Calculates the max number of thread pages that can be stored in main memory.
-	pageNumber = memorySize/(pageSize+metaSize);
+	pageNumber = MEMORY_SIZE / (PAGE_SIZE + META_SIZE);
 	int x = 0;
 	int pageid = 0;
 	int swapfile = open("./swapfile.txt", O_CREAT | O_RDWR);
 	//Create the initial swap file by filling it with pagedata followed immediately by data
-	while (x < pageNumber * 2) {
+	while (x < pageNumber * 2)
+	{
 		//Always initialize the first metadata and page, They will be written into the swapfile.
-		PageData* threadPage = (PageData *)((char *)memoryblock);
-		threadPage->pageStart = (MemoryData *)((char *)memoryblock + pageNumber * metaSize);
-		// The size of the memory that is available left for use is this size   
-		threadPage->pageStart->size = pageSize; 
+		PageData *threadPage = (PageData *)((char *)memoryblock);
+		threadPage->pageStart = (MemoryData *)((char *)memoryblock + pageNumber * META_SIZE);
+		// The size of the memory that is available left for use is this size
+		threadPage->pageStart->size = PAGE_SIZE;
 		threadPage->pageStart->isFree = TRUE;
 		threadPage->pageStart->next = NULL;
 		threadPage->pageStart->prev = NULL;
@@ -45,18 +48,19 @@ boolean initialize() {
 		threadPage->pageid = pageid;
 		threadPage->next = -1;
 		threadPage->isContinuous = FALSE;
-		write(swapfile, memoryblock, pageSize + metaSize);
+		write(swapfile, memoryblock, PAGE_SIZE + META_SIZE);
 		x++;
 		pageid++;
 	}
 	close(swapfile);
 	x = 0;
 	// Creates a representation of each thread page as a struct
-	while (x < pageNumber) {
-		PageData* threadPage = (PageData *)((char *)memoryblock + x * metaSize); //put all metadata in the front of the memoryblock
-		// The size of the memory that is available left for use is this size   
-		threadPage->pageStart = (MemoryData *)((char *)memoryblock + pageNumber * metaSize + x * pageSize);//in each metadata it stores where the addr of the real memory block
-		threadPage->pageStart->size = pageSize; 
+	while (x < pageNumber)
+	{
+		PageData *threadPage = (PageData *)((char *)memoryblock + x * META_SIZE); //put all metadata in the front of the memoryblock
+		// The size of the memory that is available left for use is this size
+		threadPage->pageStart = (MemoryData *)((char *)memoryblock + pageNumber * META_SIZE + x * PAGE_SIZE); //in each metadata it stores where the addr of the real memory block
+		threadPage->pageStart->size = PAGE_SIZE;
 		threadPage->pageStart->isFree = TRUE;
 		threadPage->pageStart->next = NULL;
 		threadPage->pageStart->prev = NULL;
@@ -69,41 +73,46 @@ boolean initialize() {
 		pageid++;
 	}
 	x = 0;
-	
+
 	return TRUE;
 }
 
 //A function to find the memory page with the given pid.
 //You can use pid = -1 to find the first free page, since pages are initialized with pid -1.
-PageData* findPage(int pid) {
+PageData *findPage(int pid)
+{
 	int x = 0;
 	//Iterate through the array of thread pages until one with given pid is found.
-	while (x < pageNumber) {
+	while (x < pageNumber)
+	{
 		//Ignore any pages that are continuous - those won't have valid metadata and are being used by another thread
-		if (((PageData *)((char *)memoryblock + x * pageSize))->isContinuous == FALSE) {
-			if (((PageData *)((char *)memoryblock + x * pageSize))->pid == pid) {
+		if (((PageData *)((char *)memoryblock + x * PAGE_SIZE))->isContinuous == FALSE)
+		{
+			if (((PageData *)((char *)memoryblock + x * PAGE_SIZE))->pid == pid)
+			{
 				//Return the address of the metadata of the page
-				return (PageData *)((char *)memoryblock + x * pageSize);
+				return (PageData *)((char *)memoryblock + x * PAGE_SIZE);
 			}
 		}
 		x++;
-		
 	}
 	//If a page with the given pid doesn't exist, return NULL.
 	return NULL;
 }
 
 //A function to find the memory page with the given page id.
-PageData* findPageByPageID(int pageid) {
+PageData *findPageByPageID(int pageid)
+{
 	int x = 0;
 	//Iterate through the array of thread pages until one with given page id is found.
-	while (x < pageNumber) {
-		if (((PageData *)((char *)memoryblock + x * pageSize))->pageid == pageid) {
+	while (x < pageNumber)
+	{
+		if (((PageData *)((char *)memoryblock + x * PAGE_SIZE))->pageid == pageid)
+		{
 			//Return the address of the metadata of the page
-			return (PageData *)((char *)memoryblock + x * pageSize);
+			return (PageData *)((char *)memoryblock + x * PAGE_SIZE);
 		}
 		x++;
-		
 	}
 	//If a page with the given page id doesn't exist, return NULL.
 	return NULL;
@@ -111,34 +120,38 @@ PageData* findPageByPageID(int pageid) {
 
 //A function to find a page in the swapfile with this pid. Needs the pid and the starting address
 //of the pageData corresponding to the page being swapped out.
-PageData* findSwapPage(int pid, int pageData) {
+PageData *findSwapPage(int pid, int pageData)
+{
 	int x = 0;
 	//Store each pagedata and data
-	char threadblock[pageSize + metaSize];
+	char threadblock[PAGE_SIZE + META_SIZE];
 	int swapfile = open("./swapfile.txt", O_RDWR);
 	//Iterate through the array of thread pages in the swapfile util one with the given pid is found
-	while (x < pageNumber * 2) {
-		read(swapfile, threadblock, metaSize + pageSize);
+	while (x < pageNumber * 2)
+	{
+		read(swapfile, threadblock, META_SIZE + PAGE_SIZE);
 		//Page must be non-continuous
-		if ((PageData*)threadblock->isContinuous == FALSE){
+		if (((PageData *)threadblock)->isContinuous == FALSE)
+		{
 			//If we find a page in the swap file with the right pid
-			if ((PageData*)threadblock->pid == pid){
-				lseek(swapfile, x * (pageSize + metaSize), SEEK_SET);
+			if (((PageData *)threadblock)->pid == pid)
+			{
+				lseek(swapfile, x * (PAGE_SIZE + META_SIZE), SEEK_SET);
 				//Copy the stuff in the swap file into the temp
-				char temp[pageSize + metaSize];
-				read(swapfile, (void*)temp, pageSize + metaSize);
-				lseek(swapfile, x * (pageSize + metaSize), SEEK_SET);
+				char temp[PAGE_SIZE + META_SIZE];
+				read(swapfile, (void *)temp, PAGE_SIZE + META_SIZE);
+				lseek(swapfile, x * (PAGE_SIZE + META_SIZE), SEEK_SET);
 				//Write the pagedata from the swap file to the appropriate page
-				write(swapfile, (char*)memoryblock + pageData, metaSize);
+				write(swapfile, (char *)memoryblock + pageData, META_SIZE);
 				//Write the data from the swap file to the current page of the pagedata that was overwritten
-				write(swapfile, (PageData*)((char*)memoryblock + pageData)->currentPage, pageSize);
+				write(swapfile, ((PageData *)((char *)memoryblock + pageData))->current_location, PAGE_SIZE);
 				//Return the pagedata corresponding to the data that was swapped in
 				close(swapfile);
-				return (PageData*)((char*)memoryblock + pageData);
+				return (PageData *)((char *)memoryblock + pageData);
 			}
 		}
 		x++;
-		lseek(swapfile, x * (pageSize + metaSize), SEEK_SET);
+		lseek(swapfile, x * (PAGE_SIZE + META_SIZE), SEEK_SET);
 	}
 	close(swapfile);
 	return NULL;
@@ -146,31 +159,34 @@ PageData* findSwapPage(int pid, int pageData) {
 
 //A function to find a page in the swapfile with this pageid. Needs the pageid and the starting address
 //of the pageData corresponding to the page being swapped out.
-PageData* findSwapPageByPageID(int pageid, int pageData) {
+PageData *findSwapPageByPageID(int pageid, int pageData)
+{
 	int x = 0;
 	//Store each pagedata and data
-	char threadblock[pageSize + metaSize];
+	char threadblock[PAGE_SIZE + META_SIZE];
 	int swapfile = open("./swapfile.txt", O_RDWR);
 	//Iterate through the array of thread pages in the swapfile util one with the given pageid is found
-	while (x < pageNumber * 2) {
-		read(swapfile, threadblock, metaSize + pageSize);
+	while (x < pageNumber * 2)
+	{
+		read(swapfile, threadblock, META_SIZE + PAGE_SIZE);
 		//If we find a page in the swap file with the right pageid
-		if ((PageData*)threadblock->pageid == pageid){
-			lseek(swapfile, x * (pageSize + metaSize), SEEK_SET);
+		if (((PageData *)threadblock)->pageid == pageid)
+		{
+			lseek(swapfile, x * (PAGE_SIZE + META_SIZE), SEEK_SET);
 			//Copy the stuff in the swap file into the temp
-			char temp[pageSize + metaSize];
-			read(swapfile, (void*)temp, pageSize + metaSize);
-			lseek(swapfile, x * (pageSize + metaSize), SEEK_SET);
+			char temp[PAGE_SIZE + META_SIZE];
+			read(swapfile, (void *)temp, PAGE_SIZE + META_SIZE);
+			lseek(swapfile, x * (PAGE_SIZE + META_SIZE), SEEK_SET);
 			//Write the pagedata from the swap file to the appropriate page
-			write(swapfile, (char*)memoryblock + pageData, metaSize);
+			write(swapfile, (char *)memoryblock + pageData, META_SIZE);
 			//Write the data from the swap file to the current page of the pagedata that was overwritten
-			write(swapfile, (PageData*)((char*)memoryblock + pageData)->currentPage, pageSize);
+			write(swapfile, ((PageData *)((char *)memoryblock + pageData))->current_location, PAGE_SIZE);
 			//Return the pagedata corresponding to the data that was swapped in
 			close(swapfile);
-			return (PageData*)((char*)memoryblock + pageData);
+			return (PageData *)((char *)memoryblock + pageData);
 		}
 		x++;
-		lseek(swapfile, x * (pageSize + metaSize), SEEK_SET);
+		lseek(swapfile, x * (PAGE_SIZE + META_SIZE), SEEK_SET);
 	}
 	close(swapfile);
 	return NULL;
@@ -180,11 +196,14 @@ PageData* findSwapPageByPageID(int pageid, int pageData) {
 This function finds the first free memory block starting at the given MemoryData* pointer.
 It iterates through the MemoryData* linked list until it finds a free block.
 */
-MemoryData* findFirstFree(int size, MemoryData * start) {
-	MemoryData * ptr = start;
+MemoryData *findFirstFree(int size, MemoryData *start)
+{
+	MemoryData *ptr = start;
 	//Iterate through the memory blocks until you find a block that's both free and can fit in the memory we want to malloc, plus its metadata
-	while ( ptr != NULL) {
-		if (ptr->isFree == TRUE && ptr->size >= size) {
+	while (ptr != NULL)
+	{
+		if (ptr->isFree == TRUE && ptr->size >= size)
+		{
 			return ptr;
 		}
 		ptr = ptr->next;
@@ -196,10 +215,12 @@ MemoryData* findFirstFree(int size, MemoryData * start) {
 /*
 This function swaps the contents of two pages. Used to make thread pages contiguous in memory when a thread has multiple pages.
 */
-void swapMemory(int firstStartAddress, int secondStartAddress) {
-	char tempArray[pageSize];
+void swapMemory(int firstStartAddress, int secondStartAddress)
+{
+	char tempArray[PAGE_SIZE];
 	int i = 0;
-	while (i < pageSize) {
+	while (i < PAGE_SIZE)
+	{
 		tempArray[i] = memoryblock[firstStartAddress + i];
 		memoryblock[firstStartAddress + i] = memoryblock[secondStartAddress + i];
 		memoryblock[secondStartAddress + i] = tempArray[i];
@@ -210,15 +231,16 @@ void swapMemory(int firstStartAddress, int secondStartAddress) {
 /*
 A function to get the pageData that corresponds to the given page starting address.
 */
-PageData* getPageFromAddress(int address) {
+PageData *getPageFromAddress(int address)
+{
 	int x = 0;
 	//Iterate through all pages
 	while (x < pageNumber)
-    {
+	{
 		//If the current location of the page is the address given as input, then return the metadata corresponding to that page
-		if (((PageData *)((char *)memoryblock + x * metaSize)->currentLocation == address))
-        {
-			return (PageData *)((char *)memoryblock + x * metaSize);
+		if (((PageData *)((char *)memoryblock + x * META_SIZE))->current_location == address)
+		{
+			return (PageData *)((char *)memoryblock + x * META_SIZE);
 		}
 		x++;
 	}
@@ -228,17 +250,20 @@ PageData* getPageFromAddress(int address) {
 /*
 A function to return all pages to their starting positions. Called whenever a thread is switched out.
 */
-void resetPages() {
+void resetPages()
+{
 	int x = 0;
 	//Iterate through all pages
-	while (x < pageNumber) {
-		PageData* page = (PageData *)((char *)memoryblock + x * metaSize);
+	while (x < pageNumber)
+	{
+		PageData *page = (PageData *)((char *)memoryblock + x * META_SIZE);
 		//If the page isn't in the position it started in, then swap it with the page that is
-		if (page->pageStart != page->currentPage) {
-			int temp = page->currentPage;
-			swapPages(page->pageStart, page->currentPage);
-			page->currentPage = page->pageStart;
-			getPageFromAddress(page->currentPage)->currentPage = temp;
+		if (page->pageStart != page->current_location)
+		{
+			int temp = page->current_location;
+			swapPages(page->pageStart, page->current_location);
+			page->current_location = page->pageStart;
+			getPageFromAddress(page->current_location)->current_location = temp;
 		}
 		x++;
 	}
@@ -247,21 +272,26 @@ void resetPages() {
 /*
 A function to set all pages of the given thread to the beginning of memory. Called whenever a thread is swapped in.
 */
-void setPagesAtFront(int pid) {
+void setPagesAtFront(int pid)
+{
 	int x = 0;
-	while (x < pageNumber) {
-		PageData* page = (PageData *)((char *)memoryblock + x * metaSize);
-		if (page->pid == pid) {
+	while (x < pageNumber)
+	{
+		PageData *page = (PageData *)((char *)memoryblock + x * META_SIZE);
+		if (page->pid == pid)
+		{
 			int i = 0;
 			//Iterate through all pages owned by a thread and put them successively at the front of the pages.
-			while (page->next != -1) {
-				PageData* ithPage = (PageData *)((char *)memoryblock + i * metaSize);
+			while (page->next != -1)
+			{
+				PageData *ithPage = (PageData *)((char *)memoryblock + i * META_SIZE);
 				swapPages(ithPage->pageStart, page->pageStart);
-				ithPage->currentPage = page->pageStart;
-				page->currentPage = ithPage->pageStart;
+				ithPage->current_location = page->pageStart;
+				page->current_location = ithPage->pageStart;
 				page = findPageByPageID(page->next);
-				if (page == NULL) {
-					page = findSwapPageByPageID(page->next, &ithPage + metaSize);
+				if (page == NULL)
+				{
+					page = findSwapPageByPageID(page->next, &ithPage + META_SIZE);
 				}
 				i++;
 			}
@@ -275,84 +305,99 @@ void setPagesAtFront(int pid) {
 This function is a custom malloc function that takes an int size as an input and returns a void * pointer to 
 the start of an empty memory block. Depending on the currently executing thread, a different memory block may be used.
 */
-void * myallocate(int size, char* myfile, int line, int req) {
-	
+void *myallocate(int size, char *myfile, int line, int req)
+{
+
 	//Can't allocate more memory than the size of main memory
-	if (size > pageNumber * pageSize) {
+	if (size > pageNumber * PAGE_SIZE)
+	{
 		return NULL;
 	}
-	
-	PageData* threadPage;
-	MemoryData* firstFreeAddress; 
+
+	PageData *threadPage;
+	MemoryData *firstFreeAddress;
 	int pid = get_current_thread()->thread->pid;
-	
+
 	//If the attempted allocated size is 0 or negative, print an error message and return NULL.
-	if(size <= 0) { 
-		printf("You have attempted to allocate a non-positive number bytes in File: '%s' Line: '%d'\n", myfile, line); 
+	if (size <= 0)
+	{
+		printf("You have attempted to allocate a non-positive number bytes in File: '%s' Line: '%d'\n", myfile, line);
 		return NULL;
-	}	
-	
+	}
+
 	//Allow all data to be changed. Revoke rights at the end.
-	mprotect(memoryblock, 8000000, PROT_READ|PROT_WRITE);
-	
+	mprotect(memoryblock, 8000000, PROT_READ | PROT_WRITE);
+
 	// If memory hasn't been initialized yet, then initialize it. Otherwise, call findFirstFree.
-	if(memInit == FALSE) {
-		initialize(); 
+	if (memInit == FALSE)
+	{
+		initialize();
 		//If memory has just been initialized, the first free thread page will be the first one.
-		threadPage = (PageData*)memoryblock;
+		threadPage = (PageData *)memoryblock;
 		threadPage->pid = pid;
 		memInit = TRUE;
-	} else {	
+	}
+	else
+	{
 		threadPage = findPage(pid);
 		//If there is no page with the given pid, then find the first free thread page (pid -1)
-		if (threadPage == NULL) {
+		if (threadPage == NULL)
+		{
 			threadPage = findPage(-1);
 		}
 		//If there is no page with pid -1, meaning there are no free pages, then return NULL; there is no space left
-		if (threadPage == NULL) {
+		if (threadPage == NULL)
+		{
 			//Will replace the first pagedata with swap file page.
 			threadPage = findSwapPage(pid, 0);
-		}  
+		}
 		//If there is no swap page with the given pid, then find the first free swap file thread page (pid -1)
-		if (threadPage == NULL) {
+		if (threadPage == NULL)
+		{
 			threadPage = findSwapPage(-1, 0);
-		} 
+		}
 		//If there are no empty swap page pagedatas, then memory is full
-		if (threadPage == NULL) {
+		if (threadPage == NULL)
+		{
 			//Need to mprotect non-malloc'ed memory
 			//mprotect(memoryblock, 8000000, PROT_READ|PROT_WRITE);
 			return NULL;
 		}
 		threadPage->pid = pid;
 		//Find the first free address in that thread page
-		firstFreeAddress = findFirstFree(size,threadPage->pageStart);
+		firstFreeAddress = findFirstFree(size, threadPage->pageStart);
 	}
-		
+
 	// This means that we have enough space in "main memory" to allocate
-	if(firstFreeAddress != NULL) {  
+	if (firstFreeAddress != NULL)
+	{
 
 		/*
 		If next is null, and there's enough space for another metadata after the first free address, create another free
 		memory block after the first free one.
 		The first free memory address will hold the data, while the new free memory block will be free.
 		*/
-		if(firstFreeAddress->next == NULL && firstFreeAddress->size > size + sizeof(MemoryData)) {	
-			MemoryData* newFree = (MemoryData *)((char *)firstFreeAddress + sizeof(MemoryData) + size); // Metadata keeps track of the free block.
-			newFree->size = firstFreeAddress->size - sizeof(MemoryData) - size; //This keeps track of how much memory is free.
-			newFree->isFree = TRUE; 
+		if (firstFreeAddress->next == NULL && firstFreeAddress->size > size + sizeof(MemoryData))
+		{
+			MemoryData *newFree = (MemoryData *)((char *)firstFreeAddress + sizeof(MemoryData) + size); // Metadata keeps track of the free block.
+			newFree->size = firstFreeAddress->size - sizeof(MemoryData) - size;							//This keeps track of how much memory is free.
+			newFree->isFree = TRUE;
 			// Insert a new free memory block between the firstFreeAddress, which is now being malloced, and its next memory block, which is NULL in this case.
-			newFree->next = firstFreeAddress->next;	
+			newFree->next = firstFreeAddress->next;
 			newFree->prev = firstFreeAddress;
-			firstFreeAddress->next = newFree;		
-		/*
+			firstFreeAddress->next = newFree;
+			/*
 		If next is not null, then we need to check to make sure there's enough space beween the two memory blocks to create another metadata.
 		If not, then we can't create another free memory block between the two. If there is enough space, then we create newFree.
 		*/
-		} else if(firstFreeAddress->size - size > sizeof(MemoryData) && firstFreeAddress->next != NULL) { 
-			MemoryData* newFree = (MemoryData *)((char *) firstFreeAddress + sizeof(MemoryData) + size);
+		}
+		else if (firstFreeAddress->size - size > sizeof(MemoryData) && firstFreeAddress->next != NULL)
+		{
+			MemoryData *newFree = (MemoryData *)((char *)firstFreeAddress + sizeof(MemoryData) + size);
 			newFree->size = firstFreeAddress->size - sizeof(MemoryData) - size;
 			newFree->next = firstFreeAddress->next;
-			if(newFree->next != NULL) {
+			if (newFree->next != NULL)
+			{
 				newFree->next->prev = newFree;
 			}
 			newFree->prev = firstFreeAddress;
@@ -362,128 +407,151 @@ void * myallocate(int size, char* myfile, int line, int req) {
 		/*
 		If next is null and there's not enough space for the malloc, then try to allocate another empty page to this process.
 		*/
-		else if (firstFreeAddress->size < size + sizeof(MemoryData) && firstFreeAddress->next == NULL){
-			while (firstFreeAddress->size < size + sizeof(MemoryData)) {
-				PageData* emptyPage;
+		else if (firstFreeAddress->size < size + sizeof(MemoryData) && firstFreeAddress->next == NULL)
+		{
+			while (firstFreeAddress->size < size + sizeof(MemoryData))
+			{
+				PageData *emptyPage;
 				emptyPage = findPage(-1);
 				//If there are no empty pages, then check the swap file
-				if (emptyPage == NULL) {
-					emptyPage = findSwapPage(-1, metaSize * 30);
+				if (emptyPage == NULL)
+				{
+					emptyPage = findSwapPage(-1, META_SIZE * 30);
 				}
 				//If there are no empty pages, then there is not enough memory left. Return null.
-				if (emptyPage == NULL) {
+				if (emptyPage == NULL)
+				{
 					return NULL;
 				}
 				//The page is now continuous with another one and the metadata can be overwritten. Additionally, other threads can't use this page.
 				emptyPage->isContinuous = 1;
-				PageData* ptr = threadPage;
+				PageData *ptr = threadPage;
 				//Add the new page to the end of the linked list of continuous pages started by this thread
-				while (ptr->next != -1) {
+				while (ptr->next != -1)
+				{
 					ptr = findPageByPageID(ptr->next);
-					if (ptr == NULL) {
-						ptr = findSwapPageByPageID(ptr->next, metaSize * 20);
+					if (ptr == NULL)
+					{
+						ptr = findSwapPageByPageID(ptr->next, META_SIZE * 20);
 					}
 				}
 				ptr->next = emptyPage->pageid;
 				//Swap the page after the last page in the thread and the empty page, then update their locations in the metadata
-				swapPages(ptr->pageStart + pageSize, emptyPage->pageStart);
-				getPageFromAddress(ptr->pageStart + pageSize)->currentPage = emptyPage->pageStart;
-				emptyPage->currentPage = ptr->pageStart + pageSize;
-				firstFreeAddress->size += pageSize;
+				swapPages(ptr->pageStart + PAGE_SIZE, emptyPage->pageStart);
+				getPageFromAddress(ptr->pageStart + PAGE_SIZE)->current_location = emptyPage->pageStart;
+				emptyPage->current_location = ptr->pageStart + PAGE_SIZE;
+				firstFreeAddress->size += PAGE_SIZE;
 			}
-
 		}
 		// Regardless of whether a new free memory block is created, set the size of firstFreeAddress, set it to not free, and set the pid to the current thread.
 		firstFreeAddress->size = size;
 		firstFreeAddress->isFree = FALSE;
 		// Return the address of the data after the metadata.
-		return (char*)firstFreeAddress + sizeof(MemoryData);
-	} else {
+		return (char *)firstFreeAddress + sizeof(MemoryData);
+	}
+	else
+	{
 		// If firstFindFree returned NULL, then there wasn't enough memory.
 		printf("There is not enough space in memory in order to allocated the amount requested in File: '%s' Line: '%d'\n", myfile, line);
 		return NULL;
-	}				 
+	}
 }
 
-void mydeallocate(void * mementry, char * myfile, int line, int req) {
-	
+void mydeallocate(void *mementry, char *myfile, int line, int req)
+{
+
 	// We start the pointer at mainMemory, which is the start of the char array.
 	int pid = get_current_thread()->thread->pid;
-	
-	PageData* threadPage = findPage(pid);
+
+	PageData *threadPage = findPage(pid);
 	//Check the swap file for the pid
-	if (threadPage == NULL) {
-		threadPage = findSwapPage(pid, metaSize * 30);
+	if (threadPage == NULL)
+	{
+		threadPage = findSwapPage(pid, META_SIZE * 30);
 	}
 	//No page exists with that pid. Trying to free non-malloced memory. Seg fault.
-	if (threadPage == NULL) {
+	if (threadPage == NULL)
+	{
 		return;
 	}
-	MemoryData* ptr = threadPage->pageStart;
+	MemoryData *ptr = threadPage->pageStart;
 	// Goes through the linked list of memory blocks until it reaches one whose address matches the address of the freed variable
 	while (ptr != NULL)
-    {
+	{
 
 		if (mementry - sizeof(MemoryData) == ptr && ptr->isFree == FALSE)
-        {
+		{
 			/* 
 			This code will also merge adjacent free memory blocks, so it checks to see if the next memory block is NULL or not.
 			We do not need to iterate through a while loop because this check will take place after every free, ensuring that every
 			single adjacent free memory block will be merged, preventing future adjacent free memory blocks.
 			*/
 
-			if (ptr->prev != NULL) {
+			if (ptr->prev != NULL)
+			{
 				/*
 				If the previous memory block is free, then we need to remove the current memory block and merge it with the previous one.
 				Because metadata comes before data in our code, we move all of the current memory block's metadata to the previous memory block.
 				*/
-				if (ptr->prev->isFree == TRUE) {
-					ptr->prev->size = ptr->size + (char *)ptr - (char*)ptr->prev;
+				if (ptr->prev->isFree == TRUE)
+				{
+					ptr->prev->size = ptr->size + (char *)ptr - (char *)ptr->prev;
 					ptr = ptr->prev;
 					ptr->next = ptr->next->next;
-					if (ptr->prev != NULL) {
+					if (ptr->prev != NULL)
+					{
 						ptr->prev->next = ptr;
 					}
-				} else {
+				}
+				else
+				{
 					ptr->prev->next = ptr;
 				}
 			}
-			
-			if (ptr->next != NULL) {
+
+			if (ptr->next != NULL)
+			{
 				/*
 				If the next memory block is free, then set the size of the current memory block to its own size plus the size of the
 				adjacent memory block, which will be its data size plus its metadata size. Also set the current memory block's next
 				pointer to the next pointer of the merged memory block.
 				*/
-				if (ptr->next->isFree == TRUE) {
-					ptr->size = ptr->next->size + (char *)ptr->next - (char*)ptr;
+				if (ptr->next->isFree == TRUE)
+				{
+					ptr->size = ptr->next->size + (char *)ptr->next - (char *)ptr;
 					ptr->next = ptr->next->next;
-					if (ptr->next != NULL) {
+					if (ptr->next != NULL)
+					{
 						ptr->next->prev = ptr;
 					}
-				} else {
+				}
+				else
+				{
 					ptr->next->prev = ptr;
 				}
 			}
-			
+
 			// After checking to make sure all adjacent memory blocks are merged, set the block's isFree to TRUE.
 			ptr->isFree = TRUE;
 			//If the free size is greater than or equal to page size minus the metadata size, this means that the last page is no longer storing anything
 			//Make the thread page free for another thread to store in. Continue until all pages that are empty are freed for other threads.
-			while (ptr->size >= pageSize - sizeof(MemoryData)) {
-				PageData* pageptr = threadPage;
-				PageData* pageprev = NULL;
-				while (pageptr->next != -1) {
+			while (ptr->size >= PAGE_SIZE - sizeof(MemoryData))
+			{
+				PageData *pageptr = threadPage;
+				PageData *pageprev = NULL;
+				while (pageptr->next != -1)
+				{
 					pageprev = pageptr;
 					pageptr = findPageByPageID(pageptr->next);
-					if (pageptr == NULL) {
-						pageptr = findSwapPageByPageID(pageptr->next, metaSize * 20);
+					if (pageptr == NULL)
+					{
+						pageptr = findSwapPageByPageID(pageptr->next, META_SIZE * 20);
 					}
 				}
 				pageptr->isContinuous = 0;
 				pageptr->pid = -1;
 				pageprev->next = -1;
-				ptr->size -= pageSize;
+				ptr->size -= PAGE_SIZE;
 			}
 			return;
 		}
