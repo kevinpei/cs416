@@ -24,9 +24,6 @@ Each of these thread pages begins completely free.
 */
 boolean initialize()
 {
-
-	// PAGE_SIZE = (_SC_PAGE_SIZE);
-	// META_SIZE = META_SIZE;
 	//Calculates the max number of thread pages that can be stored in main memory.
 	pageNumber = MEMORY_SIZE / (PAGE_SIZE + META_SIZE);
 	int x = 0;

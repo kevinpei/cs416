@@ -21,9 +21,9 @@ typedef struct _PageData
 {
 	//Stores where the memory is supposed to start
 	struct _MemoryData *pageStart;
-	unsigned short int pid;
-	unsigned short int pageid;
-	char isContinuous;
+	int pid;
+	int pageid;
+	boolean isContinuous;
 	//page id of the next page data in the continuous page
 	struct _PageData *current_page;
 	int current_location;
