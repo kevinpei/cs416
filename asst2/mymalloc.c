@@ -20,12 +20,60 @@ This function initializes main memory by creating as many thread pages as will f
 Each thread pages has free size equal to the page size minus the size of the metadata.
 Each of these thread pages begins completely free.
 */
+
+pageSize = ( _SC_PAGE_SIZE);
+metaSize = sizeof(PageData);
+//Calculates the max number of thread pages that can be stored in main memory.
+pageNumber = memorySize/(pageSize+metaSize);
+
+void* shalloc(size_t size)
+{
+    MemoryData* shaMem = (MemoryData *)((char *)memoryblock + pageNumber * metaSize + (pageNumber-4) * pageSize);//the start of the shared space
+    
+    while(shaMem<(MemoryData *)(memoryblock + memorySize))
+    {
+        //if the memory is not free go down one
+        if(shaMem->isFree == FALSE) {
+            shaMem = (MemoryData *)((char *)shaMem + sizeof(MemoryData) + shaMem->size);
+            continue;
+        }
+        else
+        {
+            //if there is space for the allocation to happen
+            if(shaMem->size >= size)
+            {
+                shaMem->size=size;
+                shaMem->isFree=FALSE;
+                if(shaMem->size >= size + sizeof(MemoryData))
+                {
+                    MemoryData* nextMem=(MemoryData *)((char *)shaMem + sizeof(MemoryData) + size);
+                    nextMem->size=shaMem->size - size - sizeof(MemoryData);
+                    nextMem->isFree=TRUE;
+                }
+                
+                return (void*)(shaMem);
+            }
+            else
+            {
+                
+                printf("not enough space in the share space");
+                return NULL;
+            }
+            
+        }
+        
+        
+    }
+        
+    return NULL;
+
+    
+}
+
+
 boolean initialize() {
     
-	pageSize = ( _SC_PAGE_SIZE);
-	metaSize = sizeof(PageData);
-	//Calculates the max number of thread pages that can be stored in main memory.
-	pageNumber = memorySize/(pageSize+metaSize);
+	
 	int x = 0;
 	// Creates a representation of each thread page as a struct
 	while (x < pageNumber) {
