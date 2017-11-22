@@ -1,3 +1,6 @@
+#ifndef MYMALLOC_H
+#define MYMALLOC_H
+
 #include <stdlib.h>
 #include <stdio.h>
 #include "my_pthread_t.h"
@@ -46,3 +49,5 @@ void mydeallocate(void *mementry, char *myfile, int line, int req);
 
 //Library constants
 int THREADREQ;
+
+#endif

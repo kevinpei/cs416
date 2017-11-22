@@ -1,8 +1,8 @@
-#include "mymalloc.h"
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include "mymalloc.h"
 
 static boolean memInit = FALSE;
 
@@ -23,7 +23,7 @@ Each of these thread pages begins completely free.
 */
 boolean initialize()
 {
-
+	printf("initialize() from mymalloc\n");
 	pageSize = (_SC_PAGE_SIZE);
 	metaSize = sizeof(PageData);
 	//Calculates the max number of thread pages that can be stored in main memory.
@@ -170,14 +170,14 @@ void swapPages(int firstStartAddress, int secondStartAddress)
 /*
 A function to get the pageData that corresponds to the given page starting address.
 */
-PageData *getPageFromAddress(int address)
+PageData *getPageFromAddress(MemoryData *address)
 {
 	int x = 0;
 	//Iterate through all pages
 	while (x < pageNumber)
 	{
 		//If the current location of the page is the address given as input, then return the metadata corresponding to that page
-		if (((PageData *)((char *)memoryblock + x * sizeof(PageData)))->currentLocation == address)
+		if (&(*(((PageData *)((char *)memoryblock + x * sizeof(PageData)))->currentPage)) == &(*address))
 		{
 			return (PageData *)((char *)memoryblock + x * sizeof(PageData));
 		}
