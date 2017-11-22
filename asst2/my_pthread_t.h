@@ -22,6 +22,7 @@
 #include <ucontext.h>
 #include <sys/time.h>
 #include <signal.h>
+#include "mymalloc.h"
 
 typedef uint my_pthread_t;
 
