@@ -16,7 +16,7 @@
 #define memorySize 8388608
 #define FALSE 0
 #define TRUE 1
-#define boolean char
+#define boolean int
 
 /*
 PageData includes a next pointer to point to the next memory block. It is the same as MemoryData except that it must store the
@@ -29,7 +29,7 @@ typedef struct _PageData
 	struct _MemoryData *pageStart;
 	short int pid;
 	int page_id;
-	char isContinuous;
+	boolean isContinuous;
 	struct _PageData *next;
 } PageData;
 

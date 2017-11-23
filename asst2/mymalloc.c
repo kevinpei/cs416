@@ -378,7 +378,7 @@ void *myallocate(int size, char *myfile, int line, int req)
 					return NULL;
 				}
 				//The page is now continuous with another one and the metadata can be overwritten. Additionally, other threads can't use this page.
-				emptyPage->isContinuous = 1;
+				emptyPage->isContinuous = TRUE;
 				printf("Set to continuous\n");
 				PageData *ptr = threadPage;
 				//Add the new page to the end of the linked list of continuous pages started by this thread
@@ -391,8 +391,8 @@ void *myallocate(int size, char *myfile, int line, int req)
 				//Swap the page after the last page in the thread and the empty page, then update their locations in the metadata
 				printf("About to swap pages\n");
 				swapPages(ptr + 1, emptyPage);
-				getPageFromAddress(ptr->pageStart + pageSize)->pageStart = emptyPage->pageStart;
-				emptyPage->pageStart = ptr->pageStart + pageSize;
+				getPageFromAddress((MemoryData *)((char *)(ptr->pageStart) + pageSize))->pageStart = emptyPage->pageStart;
+				emptyPage->pageStart = (MemoryData *)((char *)(ptr->pageStart) + pageSize);
 				firstFreeAddress->size += pageSize;
 			}
 			//Check to see if there's room for another metadata
@@ -512,7 +512,7 @@ void mydeallocate(void *mementry, char *myfile, int line, int req)
 					pageprev = pageptr;
 					pageptr = pageptr->next;
 				}
-				pageptr->isContinuous = 0;
+				pageptr->isContinuous = FALSE;
 				pageptr->pid = -1;
 				pageprev->next = NULL;
 				ptr->size -= pageSize;
