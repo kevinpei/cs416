@@ -43,7 +43,7 @@ typedef struct _MemoryData
 {
 	struct _MemoryData *next;
 	struct _MemoryData *prev;
-	short int size;
+	int size;
 	boolean isFree;
 } MemoryData;
 
