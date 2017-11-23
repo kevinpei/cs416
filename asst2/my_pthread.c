@@ -99,7 +99,8 @@ int add_to_run_queue_priority_based(thread_node *node)
 
 //A function to get the currently running thread.
 thread_node *get_current_thread()
-{
+{	
+	printf("Getting current thread %d\n", scheduler->current_queue_number);
 	//	Based on the current queue number, return the first thread from that queue
 	// printf("Current scheduler number is %d\n", scheduler->current_queue_number);
 	if (scheduler->current_queue_number == 1)
@@ -513,6 +514,7 @@ int yield_handler(thread_node *ptr)
 			{
 				// printf("adding thread %u to run queue ... ", wait_ptr->thread->pid);
 				// add node to run queue
+				in_scheduler = TRUE;
 				thread_node *new_node = (thread_node *)malloc(sizeof(thread_node));
 				new_node->next = NULL;
 				new_node->thread = wait_ptr->thread;
@@ -539,6 +541,7 @@ int yield_handler(thread_node *ptr)
 		pid_list_node *finished_ptr = scheduler->exit_thread_list;
 		if (finished_ptr == NULL)
 		{
+			in_scheduler = TRUE;
 			scheduler->exit_thread_list = malloc(sizeof(pid_list_node));
 			scheduler->exit_thread_list->pid = exit_pid;
 			scheduler->exit_thread_list->next = NULL;
@@ -549,6 +552,7 @@ int yield_handler(thread_node *ptr)
 			{
 				finished_ptr = finished_ptr->next;
 			}
+			in_scheduler = TRUE;
 			finished_ptr->next = malloc(sizeof(pid_list_node));
 			finished_ptr->next->pid = exit_pid;
 			finished_ptr->next->next = NULL;
@@ -641,6 +645,7 @@ int my_pthread_create(my_pthread_t *thread, pthread_attr_t *attr, void *(*functi
 	{
 		// printf("\nmaking a scheduler\n");
 		atexit(&clean_up);
+		in_scheduler = TRUE;
 		scheduler = malloc(sizeof(tcb));
 		while (__sync_lock_test_and_set(&modifying_queue, 1) == 1)
 		{
@@ -666,6 +671,7 @@ int my_pthread_create(my_pthread_t *thread, pthread_attr_t *attr, void *(*functi
 
 		// make context for main. it's also for scheduler. pid = 0
 		// printf("making context for main and scheduler\n");
+		in_scheduler = TRUE;
 		thread_node *main_thread = malloc(sizeof(thread_node));
 		main_thread->next = NULL;
 		main_thread->thread = malloc(sizeof(my_pthread));
@@ -692,6 +698,7 @@ int my_pthread_create(my_pthread_t *thread, pthread_attr_t *attr, void *(*functi
 		// printf("Added to run queue\n");
 
 		// set return uc_link to exit()
+		in_scheduler = TRUE;
 		return_function = malloc(sizeof(ucontext_t));
 		getcontext(return_function);
 		return_function->uc_stack.ss_sp = malloc(65536);
@@ -727,6 +734,7 @@ int my_pthread_create(my_pthread_t *thread, pthread_attr_t *attr, void *(*functi
 	// }
 	//	Malloc some space and create a new thread
 	// printf("\nCreating new thread...\n");
+	in_scheduler = TRUE;
 	thread_node *new_thread = malloc(sizeof(thread_node));
 	new_thread->next = NULL;
 	new_thread->thread = malloc(sizeof(my_pthread));
@@ -848,6 +856,7 @@ int my_pthread_join(my_pthread_t thread, void **value_ptr)
 	}
 	// create new waiting node
 	// printf("Making new node\n");
+	in_scheduler = TRUE;
 	join_waiting_queue_node *new_node = (join_waiting_queue_node *)malloc(sizeof(join_waiting_queue_node));
 	new_node->thread = get_current_thread()->thread;
 	new_node->pid = thread;
@@ -921,6 +930,7 @@ int my_pthread_mutex_lock(my_pthread_mutex_t *mutex)
 	else
 	{
 		// printf("failed, owner is %u", mutex->pid);
+		in_scheduler = TRUE;
 		mutex_waiting_queue_node *new_node = malloc(sizeof(mutex_waiting_queue_node));
 		thread_node *current_thread = get_current_thread();
 		//		Create a new node with a thread equal to the currently running thread
@@ -974,6 +984,7 @@ int my_pthread_mutex_unlock(my_pthread_mutex_t *mutex)
 					prev->next = ptr->next;
 				}
 				// Add any nodes that were removed from the wait queue to the end of the run queue
+				in_scheduler = TRUE;
 				thread_node *new_node = malloc(sizeof(thread_node));
 				new_node->next = NULL;
 				new_node->thread = ptr->thread;
