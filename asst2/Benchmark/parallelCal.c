@@ -9,6 +9,7 @@
 #include <time.h>
 
 #include "../mymalloc.h"
+#include "../my_pthread_t.h"
 
 #define DEFAULT_THREAD_NUM 4
 

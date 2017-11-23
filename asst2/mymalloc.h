@@ -3,7 +3,13 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include "my_pthread_t.h"
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
+#include <ucontext.h>
+#include <sys/time.h>
+#include <signal.h>
+#include "mymalloc.h"
 
 #define malloc(x) myallocate(x, __FILE__, __LINE__, THREADREQ)
 #define free(x) mydeallocate(x, __FILE__, __LINE__, THREADREQ)
