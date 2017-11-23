@@ -27,8 +27,6 @@ typedef struct _PageData
 {
 	//Stores where the memory is supposed to start
 	struct _MemoryData *pageStart;
-	//Stores where the memory actually starts
-	struct _MemoryData *currentPage;
 	short int pid;
 	int page_id;
 	char isContinuous;

@@ -104,7 +104,6 @@ my_pthread_t thread_number;
 uint mutex_id;
 boolean in_scheduler;
 static char schedulerMemory[1000000];
-int scheduler_memory_ptr;
 // Feel free to add your own auxiliary data structures
 
 /* Function Declarations: */

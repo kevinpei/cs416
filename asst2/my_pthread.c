@@ -105,6 +105,7 @@ thread_node *get_current_thread()
 	// printf("Current scheduler number is %d\n", scheduler->current_queue_number);
 	if (scheduler->current_queue_number == 1)
 	{
+		printf("Returning the first queue\n");
 		return scheduler->first_running_queue;
 	}
 	else if (scheduler->current_queue_number == 2)
@@ -701,8 +702,8 @@ int my_pthread_create(my_pthread_t *thread, pthread_attr_t *attr, void *(*functi
 		in_scheduler = TRUE;
 		return_function = malloc(sizeof(ucontext_t));
 		getcontext(return_function);
-		return_function->uc_stack.ss_sp = malloc(65536);
-		return_function->uc_stack.ss_size = 65536;
+		return_function->uc_stack.ss_sp = malloc(4096);
+		return_function->uc_stack.ss_size = 4096;
 		makecontext(return_function, (void (*)(void)) & my_pthread_exit, 1, arg);
 		// printf("Made exit function, addr: %#x\n, return_function");
 
@@ -744,8 +745,8 @@ int my_pthread_create(my_pthread_t *thread, pthread_attr_t *attr, void *(*functi
 	//	Set this linkt to be the swap contexts function
 	new_thread->thread->context->uc_link = return_function;
 	//	Initializes a stack for the new thread with size 5000 bytes
-	new_thread->thread->context->uc_stack.ss_sp = malloc(65536);
-	new_thread->thread->context->uc_stack.ss_size = 65536;
+	new_thread->thread->context->uc_stack.ss_sp = malloc(4096);
+	new_thread->thread->context->uc_stack.ss_size = 4096;
 	new_thread->thread->context->uc_stack.ss_flags = 0;
 
 	//	Sets the pid of the new thread to be the next thread number - make sure that the id is never 0
