@@ -108,6 +108,7 @@ PageData *findPage(int pid)
 //of the pageData corresponding to the page being swapped out.
 PageData *findSwapPage(int pid, int pageData)
 {
+	printf("findSwapPage()");
 	int x = 0;
 	//Store each pagedata and data
 	char threadblock[pageSize + metaSize];
@@ -438,7 +439,7 @@ void *myallocate(int size, char *myfile, int line, int req)
 
 void mydeallocate(void *mementry, char *myfile, int line, int req)
 {
-
+	printf("mydealloc()\n");
 	// We start the pointer at mainMemory, which is the start of the char array.
 	int pid = get_current_thread()->thread->pid;
 
@@ -560,6 +561,7 @@ void write_memory_to_file()
 	for (i = 0; i < pageNumber * 2; i++)
 	{
 		char buffer[metaSize];
+		fseek(swap_file, i * metaSize, SEEK_SET);
 		fgets(buffer, metaSize, swap_file);
 		PageData *ptr = (PageData *)buffer;
 		fprintf(memory_file, "address: %#x, ", ptr);

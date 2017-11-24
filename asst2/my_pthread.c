@@ -97,12 +97,12 @@ int add_to_run_queue_priority_based(thread_node *node)
 //A function to get the currently running thread.
 thread_node *get_current_thread()
 {	
-	printf("Getting current thread %d\n", scheduler->current_queue_number);
+	// printf("Getting current thread %d\n", scheduler->current_queue_number);
 	//	Based on the current queue number, return the first thread from that queue
 	// printf("Current scheduler number is %d\n", scheduler->current_queue_number);
 	if (scheduler->current_queue_number == 1)
 	{
-		printf("Returning the first queue\n");
+		// printf("Returning the first queue\n");
 		return scheduler->first_running_queue;
 	}
 	else if (scheduler->current_queue_number == 2)
