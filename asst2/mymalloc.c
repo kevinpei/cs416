@@ -56,6 +56,7 @@ void mymalloc_initialize()
 	close(swapfile);
 	x = 0;*/
 	// Creates a representation of each thread page as a struct
+	printf("%d pages\n", pageNumber);
 	while (x < pageNumber)
 	{
 		PageData *threadPage = (PageData *)((char *)memoryblock + x * metaSize); //put all metadata in the front of the memoryblock
@@ -67,13 +68,12 @@ void mymalloc_initialize()
 		threadPage->pageStart->prev = NULL;
 		// A pid of -1 means that it isn't being used right now by any thread
 		threadPage->pid = -1;
-		threadPage->page_id = x + pageNumber * 2;
+		threadPage->page_id = x;
 		threadPage->next = NULL;
 		threadPage->isContinuous = FALSE;
 		x++;
 		freePages++;
 	}
-	x = 0;
 }
 
 //A function to find the memory page with the given pid.
@@ -210,6 +210,7 @@ PageData *getPageFromAddress(MemoryData *address)
 		//If the current location of the page is the address given as input, then return the metadata corresponding to that page
 		if (((PageData *)((char *)memoryblock + x * metaSize))->pageStart == address)
 		{
+			printf("Found the right address\n");
 			return (PageData *)((char *)memoryblock + x * metaSize);
 		}
 		x++;
@@ -229,13 +230,15 @@ void setPagesAtFront(int pid)
 		if (page->pid == pid)
 		{
 			int i = 0;
+			PageData *ithPage = (PageData *)((char *)memoryblock + i * metaSize);
 			//Iterate through all pages owned by a thread and put them successively at the front of the pages.
-			while (page->next != NULL)
-			{
-				PageData *ithPage = (PageData *)((char *)memoryblock + i * metaSize);
-				swapPages(ithPage, page);
-				page = ithPage->next;
-				i++;
+			if (ithPage != page) {
+				while (page->next != NULL)
+				{
+					swapPages(ithPage, page);
+					page = ithPage->next;
+					i++;
+				}
 			}
 			//Protect the metadata at the beginning
 			//mprotect(memoryblock, pageNumber * metaSize, PROT_READ | PROT_WRITE);
@@ -261,6 +264,7 @@ void *myallocate(int size, char *myfile, int line, int req)
 	if (memInit == FALSE)
 	{
 		signal(SIGSEGV, segment_fault_handler);
+		signal(SIGINT, segment_fault_handler);
 		mymalloc_initialize();
 		// //If memory has just been initialized, the first free thread page will be the first one.
 		// threadPage = (PageData *)memoryblock;
@@ -276,14 +280,7 @@ void *myallocate(int size, char *myfile, int line, int req)
 		pid = get_current_thread()->thread->pid;
 	}
 	printf("pid is %d\n", pid);
-	// if (in_scheduler == TRUE)
-	// {
-	// 	printf("Please\n");
-	// 	in_scheduler = FALSE;
-	// 	scheduler_memory_ptr += size + 20;
-	// 	printf("Scheduler ptr is at %d\n", scheduler_memory_ptr);
-	// 	return ((char *)schedulerMemory + scheduler_memory_ptr);
-	// }
+	
 	printf("Gaha\n");
 	//If the attempted allocated size is 0 or negative, print an error message and return NULL.
 	if (size <= 0)
@@ -440,10 +437,17 @@ void *myallocate(int size, char *myfile, int line, int req)
 void mydeallocate(void *mementry, char *myfile, int line, int req)
 {
 	printf("mydealloc()\n");
+
+	if (in_scheduler == TRUE)
+	{
+		printf("freeing scheduler\n");
+	 	return;
+	}
 	// We start the pointer at mainMemory, which is the start of the char array.
 	int pid = get_current_thread()->thread->pid;
 
 	PageData *threadPage = findPage(pid);
+	printf("ThreadPage has ID %d\n", threadPage->page_id);
 	//Check the swap file for the pid
 	/*if (threadPage == NULL)
 	{
@@ -458,9 +462,10 @@ void mydeallocate(void *mementry, char *myfile, int line, int req)
 	// Goes through the linked list of memory blocks until it reaches one whose address matches the address of the freed variable
 	while (ptr != NULL)
 	{
-
+		printf("ptr isn't null\n");
 		if ((MemoryData *)((char *)mementry - sizeof(MemoryData)) == ptr && ptr->isFree == FALSE)
 		{
+			printf("Found MemoryData\n");
 			/* 
 			This code will also merge adjacent free memory blocks, so it checks to see if the next memory block is NULL or not.
 			We do not need to iterate through a while loop because this check will take place after every free, ensuring that every
@@ -510,13 +515,14 @@ void mydeallocate(void *mementry, char *myfile, int line, int req)
 					ptr->next->prev = ptr;
 				}
 			}
-
+			printf("Doing the loops\n");
 			// After checking to make sure all adjacent memory blocks are merged, set the block's isFree to TRUE.
 			ptr->isFree = TRUE;
 			//If the free size is greater than or equal to page size minus the metadata size, this means that the last page is no longer storing anything
 			//Make the thread page free for another thread to store in. Continue until all pages that are empty are freed for other threads.
-			while (ptr->size >= pageSize - sizeof(MemoryData))
+			while (ptr->size >= pageSize)
 			{
+				printf("Lowering page size\n");
 				PageData *pageptr = threadPage;
 				PageData *pageprev = NULL;
 				while (pageptr->next != NULL)
@@ -530,6 +536,7 @@ void mydeallocate(void *mementry, char *myfile, int line, int req)
 				ptr->size -= pageSize;
 				freePages++;
 			}
+			printf("Returning after freeing\n");
 			return;
 		}
 		// Iterate through the linked list of memory blocks.
@@ -579,5 +586,5 @@ void segment_fault_handler(int signum)
 {
 	write_memory_to_file();
 	printf("segfault, exit");
-	_exit(EXIT_FAILURE);
+	_exit(0);
 }
