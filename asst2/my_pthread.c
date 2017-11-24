@@ -11,7 +11,7 @@
 //A function to add a given thread node to the end of the given running queue
 int add_to_run_queue(int num, thread_node *node)
 {
-	printf("add_to_run_queue(), pid: %u\n", node->thread->pid);
+	// printf("add_to_run_queue(), pid: %u\n", node->thread->pid);
 	//	If there are no running threads in the given run queue, make the thread the beginning of the queue
 	thread_node *ptr;
 	if (num == 1)
@@ -436,12 +436,12 @@ int swap_contexts()
 			free(ptr);
 			__sync_lock_release(&scheduler_running);
 			__sync_lock_release(&modifying_queue);
-			setPagesAtFront(scheduler->first_running_queue->thread->pid);
+			setPagesAtFront(scheduler->second_running_queue->thread->pid);
 			setcontext(scheduler->second_running_queue->thread->context);
 		}
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
-		setPagesAtFront(scheduler->first_running_queue->thread->pid);
+		setPagesAtFront(scheduler->second_running_queue->thread->pid);
 		swapcontext(ptr->thread->context, scheduler->second_running_queue->thread->context);
 		break;
 	//		If the third queue has the highest priority thread, switch to that one.
@@ -475,12 +475,12 @@ int swap_contexts()
 			free(ptr);
 			__sync_lock_release(&scheduler_running);
 			__sync_lock_release(&modifying_queue);
-			setPagesAtFront(scheduler->first_running_queue->thread->pid);
+			setPagesAtFront(scheduler->third_running_queue->thread->pid);
 			setcontext(scheduler->third_running_queue->thread->context);
 		}
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
-		setPagesAtFront(scheduler->first_running_queue->thread->pid);
+		setPagesAtFront(scheduler->third_running_queue->thread->pid);
 		swapcontext(ptr->thread->context, scheduler->third_running_queue->thread->context);
 		break;
 	default:
