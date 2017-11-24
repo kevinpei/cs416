@@ -27,6 +27,7 @@ boolean initialize()
 	//Calculates the max number of thread pages that can be stored in main memory.
 	pageNumber = memorySize / (pageSize + metaSize);
 	int x = 0;
+	/*
 	printf("Opening\n");
 	int swapfile = open("./swapfile.txt", O_CREAT | O_RDWR);
 	//Create the initial swap file by filling it with pagedata followed immediately by data
@@ -55,6 +56,7 @@ boolean initialize()
 	printf("Done populating swap file\n");
 	close(swapfile);
 	x = 0;
+	*/
 	// Creates a representation of each thread page as a struct
 	while (x < pageNumber)
 	{
@@ -106,6 +108,7 @@ PageData *findPage(int pid)
 	return NULL;
 }
 
+/*
 //A function to find a page in the swapfile with this pid. Needs the pid and the starting address
 //of the pageData corresponding to the page being swapped out.
 PageData *findSwapPage(int pid, int pageData)
@@ -144,7 +147,7 @@ PageData *findSwapPage(int pid, int pageData)
 	close(swapfile);
 	return NULL;
 }
-
+*/
 /*
 This function finds the first free memory block starting at the given MemoryData* pointer.
 It iterates through the MemoryData* linked list until it finds a free block.
@@ -291,6 +294,7 @@ void *myallocate(int size, char *myfile, int line, int req)
 	else
 	{
 		printf("Looking for a page\n");
+		printf("Free pages:%d\n", freePages);
 		threadPage = findPage(pid);
 		//If there is no page with the given pid, then find the first free thread page (pid -1)
 		printf("Page found\n");
@@ -299,7 +303,7 @@ void *myallocate(int size, char *myfile, int line, int req)
 			threadPage = findPage(-1);
 		}
 		//If there is no page with pid -1, meaning there are no free pages in memory
-		if (threadPage == NULL)
+		/*if (threadPage == NULL)
 		{
 			printf("Looking in swap file\n");
 			//Placeholder. Will replace the 30th pagedata with swap file page.
@@ -310,7 +314,7 @@ void *myallocate(int size, char *myfile, int line, int req)
 		{
 			threadPage = findSwapPage(-1, metaSize * 30);
 		}
-		//If there are no empty swap page pagedatas, then memory is full
+		//If there are no empty swap page pagedatas, then memory is full*/
 		if (threadPage == NULL)
 		{
 			return NULL;
@@ -368,12 +372,13 @@ void *myallocate(int size, char *myfile, int line, int req)
 				PageData *emptyPage;
 				emptyPage = findPage(-1);
 				//If there are no empty pages, then check the swap file
+				/*
 				if (emptyPage == NULL)
 				{
 					printf("Searching swap file\n");
 					emptyPage = findSwapPage(-1, metaSize * 30);
 				}
-				//If there are no empty pages, then there is not enough memory left. Return null.
+				//If there are no empty pages, then there is not enough memory left. Return null.*/
 				if (emptyPage == NULL)
 				{
 					return NULL;
@@ -432,13 +437,13 @@ void mydeallocate(void *mementry, char *myfile, int line, int req)
 	// We start the pointer at mainMemory, which is the start of the char array.
 	int pid = get_current_thread()->thread->pid;
 
-	PageData *threadPage = findPage(pid);
+	PageData *threadPage = findPage(pid);/*
 	//Check the swap file for the pid
 	if (threadPage == NULL)
 	{
 		threadPage = findSwapPage(pid, metaSize * 30);
 	}
-	//No page exists with that pid. Trying to free non-malloced memory. Seg fault.
+	//No page exists with that pid. Trying to free non-malloced memory. Seg fault.*/
 	if (threadPage == NULL)
 	{
 		return;
