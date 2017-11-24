@@ -20,7 +20,7 @@ This function initializes main memory by creating as many thread pages as will f
 Each thread pages has free size equal to the page size minus the size of the metadata.
 Each of these thread pages begins completely free.
 */
-boolean initialize()
+void mymalloc_initialize()
 {
 	freePages = 0;
 	printf("initialize() from mymalloc\n");
@@ -74,8 +74,6 @@ boolean initialize()
 		freePages++;
 	}
 	x = 0;
-
-	return TRUE;
 }
 
 //A function to find the memory page with the given pid.
@@ -160,9 +158,12 @@ MemoryData *findFirstFree(int size, MemoryData *start)
 		if (ptr->isFree == TRUE)
 		{
 			printf("Pointer is free\n");
-			if (ptr->size >= size) {
+			if (ptr->size >= size)
+			{
 				return ptr;
-			} else if (size <= freePages * 4096) {
+			}
+			else if (size <= freePages * 4096)
+			{
 				printf("Enough space in memory pages\n");
 				return ptr;
 			}
@@ -182,15 +183,15 @@ This function swaps the contents of two pages. Used to make thread pages contigu
 // 	memcpy(tempArray, firstStartAddress, pageSize);
 // 	memcpy(firstStartAddress, secondStartAddress, pageSize);
 // 	memcpy(secondStartAddress, tempArray, pageSize);
-void swapPages(PageData* firstPage, PageData* secondPage)
+void swapPages(PageData *firstPage, PageData *secondPage)
 {
 	char tempArray[metaSize];
 	int i = 0;
 	while (i < metaSize)
 	{
-		tempArray[i] = *((char*)firstPage + i);
-		*((char*)secondPage + i) = *((char*)firstPage + i);
-		*((char*)secondPage + i) = tempArray[i];
+		tempArray[i] = *((char *)firstPage + i);
+		*((char *)secondPage + i) = *((char *)firstPage + i);
+		*((char *)secondPage + i) = tempArray[i];
 		i++;
 	}
 }
@@ -251,21 +252,37 @@ the start of an empty memory block. Depending on the currently executing thread,
 void *myallocate(int size, char *myfile, int line, int req)
 {
 	printf("malloc\n");
-	if (in_scheduler == TRUE) {
-		printf("Please\n");
-		in_scheduler = FALSE;
-		scheduler_memory_ptr += size + 20;
-		printf("Scheduler ptr is at %d\n", scheduler_memory_ptr);
-		return ((void*)schedulerMemory + scheduler_memory_ptr);
-	}
+	static boolean scheduler_initialized = FALSE;
 	PageData *threadPage;
 	MemoryData *firstFreeAddress;
-	printf("Gaha\n");
-	int pid = size;
-	/*if (scheduler != NULL) {
-		//pid = get_current_thread()->thread->pid;
-	}*/
+	// If memory hasn't been initialized yet, then initialize it. Otherwise, call findFirstFree.
+	if (memInit == FALSE)
+	{
+		signal(SIGSEGV, segment_fault_handler);
+		mymalloc_initialize();
+		// //If memory has just been initialized, the first free thread page will be the first one.
+		// threadPage = (PageData *)memoryblock;
+		// threadPage->pid = pid;
+		memInit = TRUE;
+		my_pthread_initialize();
+		scheduler_initialized = TRUE;
+	}
+	// int pid = size;
+	int pid = 0;
+	if (scheduler_initialized)
+	{
+		pid = get_current_thread()->thread->pid;
+	}
 	printf("pid is %d\n", pid);
+	// if (in_scheduler == TRUE)
+	// {
+	// 	printf("Please\n");
+	// 	in_scheduler = FALSE;
+	// 	scheduler_memory_ptr += size + 20;
+	// 	printf("Scheduler ptr is at %d\n", scheduler_memory_ptr);
+	// 	return ((char *)schedulerMemory + scheduler_memory_ptr);
+	// }
+	printf("Gaha\n");
 	//If the attempted allocated size is 0 or negative, print an error message and return NULL.
 	if (size <= 0)
 	{
@@ -273,15 +290,6 @@ void *myallocate(int size, char *myfile, int line, int req)
 		return NULL;
 	}
 
-	// If memory hasn't been initialized yet, then initialize it. Otherwise, call findFirstFree.
-	if (memInit == FALSE)
-	{
-		initialize();
-		//If memory has just been initialized, the first free thread page will be the first one.
-		threadPage = (PageData *)memoryblock;
-		threadPage->pid = pid;
-		memInit = TRUE;
-	}
 	//Can't allocate more memory than the size of main memory
 	if (size > pageNumber * pageSize)
 	{
@@ -396,7 +404,8 @@ void *myallocate(int size, char *myfile, int line, int req)
 				firstFreeAddress->size += pageSize;
 			}
 			//Check to see if there's room for another metadata
-			if (firstFreeAddress->size > sizeof(MemoryData)) {
+			if (firstFreeAddress->size > sizeof(MemoryData))
+			{
 				MemoryData *newFree = (MemoryData *)((char *)firstFreeAddress + sizeof(MemoryData) + size);
 				newFree->size = firstFreeAddress->size - sizeof(MemoryData) - size;
 				newFree->next = firstFreeAddress->next;
@@ -414,7 +423,7 @@ void *myallocate(int size, char *myfile, int line, int req)
 		firstFreeAddress->size = size;
 		firstFreeAddress->isFree = FALSE;
 		// Return the address of the data after the metadata.
-		freePages-= ((size/4096) + 1);
+		freePages -= ((size / 4096) + 1);
 		return (char *)firstFreeAddress + sizeof(MemoryData);
 	}
 	else
@@ -447,7 +456,7 @@ void mydeallocate(void *mementry, char *myfile, int line, int req)
 	while (ptr != NULL)
 	{
 
-		if (mementry - sizeof(MemoryData) == ptr && ptr->isFree == FALSE)
+		if ((MemoryData *)((char *)mementry - sizeof(MemoryData)) == ptr && ptr->isFree == FALSE)
 		{
 			/* 
 			This code will also merge adjacent free memory blocks, so it checks to see if the next memory block is NULL or not.
@@ -526,4 +535,45 @@ void mydeallocate(void *mementry, char *myfile, int line, int req)
 	// If there is no memory block with a matching address, then no such variable was ever malloced.
 	printf("No such variable has been allocated in File: '%s' Line: '%d'\n", myfile, line);
 	return;
+}
+
+void write_memory_to_file()
+{
+	int i;
+	FILE *memory_file = fopen("memory.txt", "w+");
+	fprintf(memory_file, "main memory:\n====================\n");
+	for (i = 0; i < pageNumber; i++)
+	{
+		PageData *ptr = (PageData *)memoryblock + i;
+		fprintf(memory_file, "address: %#x\n", ptr);
+		fprintf(memory_file, "pageStart: %#x\n", ptr->pageStart);
+		fprintf(memory_file, "pid: %d\n", ptr->pid);
+		fprintf(memory_file, "page_id: %d\n", ptr->page_id);
+		fprintf(memory_file, "isContinuous: %d\n", ptr->isContinuous);
+		fprintf(memory_file, "next: %#x\n\n", ptr->next);
+	}
+	
+	fprintf(memory_file, "\n\nswap file:\n====================\n");
+	FILE *swap_file = fopen("swapfile.txt", "r");
+	for (i = 0; i < pageNumber * 2; i++)
+	{
+		char buffer[metaSize];
+		fgets(buffer, metaSize, swap_file);
+		PageData *ptr = (PageData *)buffer;
+		fprintf(memory_file, "address: %#x\n", ptr);
+		fprintf(memory_file, "pageStart: %#x\n", ptr->pageStart);
+		fprintf(memory_file, "pid: %d\n", ptr->pid);
+		fprintf(memory_file, "page_id: %d\n", ptr->page_id);
+		fprintf(memory_file, "isContinuous: %d\n", ptr->isContinuous);
+		fprintf(memory_file, "next: %#x\n\n", ptr->next);
+	}
+	fclose(swap_file);
+	fclose(memory_file);
+}
+
+void segment_fault_handler(int signum)
+{
+	write_memory_to_file();
+	printf("segfault, exit");
+	_exit(EXIT_FAILURE);
 }

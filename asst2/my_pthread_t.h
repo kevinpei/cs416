@@ -132,6 +132,9 @@ int swap_contexts();
 /* handling thread return without calling exit */
 void thread_return_handler();
 
+/* initalize the scheduler and timer */
+void my_pthread_initialize();
+
 /* create a new thread */
 int my_pthread_create(my_pthread_t *thread, pthread_attr_t *attr, void *(*function)(void *), void *arg);
 

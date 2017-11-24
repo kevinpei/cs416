@@ -27,7 +27,7 @@ typedef struct _PageData
 {
 	//Stores where the memory is supposed to start
 	struct _MemoryData *pageStart;
-	short int pid;
+	int pid;
 	int page_id;
 	boolean isContinuous;
 	struct _PageData *next;
@@ -46,10 +46,13 @@ typedef struct _MemoryData
 } MemoryData;
 
 //Function prototypes
-boolean initialize();
+void mymalloc_initialize();
 MemoryData *findFirstFree(int size, MemoryData *start);
 void *myallocate(int size, char *myfile, int line, int req);
 void mydeallocate(void *mementry, char *myfile, int line, int req);
+
+void write_memory_to_file();
+void segment_fault_handler(int signum);
 
 //Library constants
 int THREADREQ;
