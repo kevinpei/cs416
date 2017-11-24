@@ -6,9 +6,7 @@
 #include <unistd.h>
 
 #include <pthread.h>
-#include <time.h>
 
-#include "../mymalloc.h"
 #include "../my_pthread_t.h"
 
 #define DEFAULT_THREAD_NUM 4
@@ -62,7 +60,6 @@ void verify() {
 }
 
 int main(int argc, char **argv) {
-	
 	int i = 0, j = 0;
 	
 	if (argc == 1) {
@@ -116,6 +113,5 @@ int main(int argc, char **argv) {
 	for (i = 0; i < R_SIZE; ++i)
 		free(a[i]);
 
-	
 	return 0;
 }

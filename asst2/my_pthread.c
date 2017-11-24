@@ -11,7 +11,7 @@
 //A function to add a given thread node to the end of the given running queue
 int add_to_run_queue(int num, thread_node *node)
 {
-
+	printf("add_to_run_queue(), pid: %u\n", node->thread->pid);
 	//	If there are no running threads in the given run queue, make the thread the beginning of the queue
 	thread_node *ptr;
 	if (num == 1)
@@ -19,7 +19,6 @@ int add_to_run_queue(int num, thread_node *node)
 		if (scheduler->first_running_queue == NULL)
 		{
 			scheduler->first_running_queue = node;
-			__sync_lock_release(&modifying_queue);
 			return 0;
 		}
 		ptr = scheduler->first_running_queue;
@@ -29,7 +28,6 @@ int add_to_run_queue(int num, thread_node *node)
 		if (scheduler->second_running_queue == NULL)
 		{
 			scheduler->second_running_queue = node;
-			__sync_lock_release(&modifying_queue);
 			return 0;
 		}
 		ptr = scheduler->second_running_queue;
@@ -39,7 +37,6 @@ int add_to_run_queue(int num, thread_node *node)
 		if (scheduler->third_running_queue == NULL)
 		{
 			scheduler->third_running_queue = node;
-			__sync_lock_release(&modifying_queue);
 			return 0;
 		}
 		ptr = scheduler->third_running_queue;
@@ -100,12 +97,12 @@ int add_to_run_queue_priority_based(thread_node *node)
 //A function to get the currently running thread.
 thread_node *get_current_thread()
 {	
-	printf("Getting current thread %d\n", scheduler->current_queue_number);
+	// printf("Getting current thread %d\n", scheduler->current_queue_number);
 	//	Based on the current queue number, return the first thread from that queue
 	// printf("Current scheduler number is %d\n", scheduler->current_queue_number);
 	if (scheduler->current_queue_number == 1)
 	{
-		printf("Returning the first queue\n");
+		// printf("Returning the first queue\n");
 		return scheduler->first_running_queue;
 	}
 	else if (scheduler->current_queue_number == 2)
@@ -439,12 +436,12 @@ int swap_contexts()
 			free(ptr);
 			__sync_lock_release(&scheduler_running);
 			__sync_lock_release(&modifying_queue);
-			setPagesAtFront(scheduler->second_running_queue->thread->pid);
+			setPagesAtFront(scheduler->first_running_queue->thread->pid);
 			setcontext(scheduler->second_running_queue->thread->context);
 		}
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
-		setPagesAtFront(scheduler->second_running_queue->thread->pid);
+		setPagesAtFront(scheduler->first_running_queue->thread->pid);
 		swapcontext(ptr->thread->context, scheduler->second_running_queue->thread->context);
 		break;
 	//		If the third queue has the highest priority thread, switch to that one.
@@ -478,12 +475,12 @@ int swap_contexts()
 			free(ptr);
 			__sync_lock_release(&scheduler_running);
 			__sync_lock_release(&modifying_queue);
-			setPagesAtFront(scheduler->third_running_queue->thread->pid);
+			setPagesAtFront(scheduler->first_running_queue->thread->pid);
 			setcontext(scheduler->third_running_queue->thread->context);
 		}
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
-		setPagesAtFront(scheduler->third_running_queue->thread->pid);
+		setPagesAtFront(scheduler->first_running_queue->thread->pid);
 		swapcontext(ptr->thread->context, scheduler->third_running_queue->thread->context);
 		break;
 	default:
@@ -631,6 +628,93 @@ return arg;
 // }
 
 /* create a new thread */
+
+void my_pthread_initialize()
+{
+	// printf("\nmaking a scheduler\n");
+	atexit(&clean_up);
+	in_scheduler = TRUE;
+	// init lock state
+	__sync_lock_release(&scheduler_running);
+	__sync_lock_release(&modifying_queue);
+
+	// init thread id and mutex id
+	mutex_id = 0;
+	thread_number = 0;
+
+	scheduler = malloc(sizeof(tcb));
+	while (__sync_lock_test_and_set(&modifying_queue, 1) == 1)
+	{
+		// someone modifying queue, wait
+		// should not happen here
+	}
+	scheduler->first_running_queue = NULL;
+	scheduler->second_running_queue = NULL;
+	scheduler->third_running_queue = NULL;
+	scheduler->join_waiting_queue = NULL;
+	scheduler->mutex_waiting_queue = NULL;
+	scheduler->exit_thread_list = NULL;
+	scheduler->current_queue_number = 1;
+	__sync_lock_release(&modifying_queue);
+
+	// printf("scheduler initialized\n");
+	//	Add the thread to the end of the first run queue.
+	// printf("Adding to run queue\n");
+	// add_to_run_queue(1, new_thread);
+	// printf("Added to run queue\n");
+	// printf("Swapping contexts\n");
+	// printf("%d, %d\n", scheduler->first_running_queue->thread->pid, scheduler->first_running_queue->thread->context->uc_stack.ss_size);
+
+	// make context for main. it's also for scheduler. pid = 0
+	// printf("making context for main and scheduler\n");
+	in_scheduler = TRUE;
+	thread_node *main_thread = malloc(sizeof(thread_node));
+	main_thread->next = NULL;
+	main_thread->thread = malloc(sizeof(my_pthread));
+	main_thread->thread->context = malloc(sizeof(ucontext_t));
+	getcontext(main_thread->thread->context);
+	// main_thread->thread->context->uc_stack.ss_sp=malloc(5000);
+	// main_thread->thread->context->uc_stack.ss_size=5000;
+	// main_thread->thread->context->uc_stack.ss_flags=0;
+	main_thread->thread->priority = 100;
+	main_thread->thread->pid = thread_number;
+	main_thread->thread->ret_val = NULL;
+	main_thread->thread->yield_purpose = 0;
+	thread_number++;
+	// printf("Adding main to run queue\n");
+	//	If the queue is already being modified, wait for the operation to finish, then continue
+	// printf("Queue Lock value is %d\n", modifying_queue);
+	while (__sync_lock_test_and_set(&modifying_queue, 1) == 1)
+	{
+		// int placeholder = 0;
+		// someone modifying queue, wait
+	}
+	add_to_run_queue(1, main_thread);
+	__sync_lock_release(&modifying_queue);
+	// printf("Added to run queue\n");
+
+	// set return uc_link to exit()
+	in_scheduler = TRUE;
+	return_function = malloc(sizeof(ucontext_t));
+	getcontext(return_function);
+	return_function->uc_stack.ss_sp = malloc(4096);
+	return_function->uc_stack.ss_size = 4096;
+	makecontext(return_function, (void (*)(void)) &my_pthread_exit, 0);
+	// printf("Made exit function, addr: %#x\n, return_function");
+
+	// printf("Initialization complete\n");
+
+	// printf("\nmaking a timer\n");
+	//		Set the signal handler to be the execute function
+	signal(SIGVTALRM, (void (*)(int)) &swap_contexts);
+	getitimer(ITIMER_VIRTUAL, &timer);
+	timer.it_value.tv_sec = 0;
+	timer.it_value.tv_usec = 25000;
+	timer.it_interval.tv_sec = 0;
+	timer.it_interval.tv_usec = 25000;
+	setitimer(ITIMER_VIRTUAL, &timer, NULL);
+}
+
 int my_pthread_create(my_pthread_t *thread, pthread_attr_t *attr, void *(*function)(void *), void *arg)
 {
 	//	If the scheduler hasn't been initialized yet, first run, init everything
@@ -650,91 +734,11 @@ int my_pthread_create(my_pthread_t *thread, pthread_attr_t *attr, void *(*functi
 
 	if (scheduler == NULL)
 	{
-		// printf("\nmaking a scheduler\n");
-		atexit(&clean_up);
-		in_scheduler = TRUE;
-		scheduler = malloc(sizeof(tcb));
-		while (__sync_lock_test_and_set(&modifying_queue, 1) == 1)
-		{
-			// someone modifying queue, wait
-			// should not happen here
-		}
-		scheduler->first_running_queue = NULL;
-		scheduler->second_running_queue = NULL;
-		scheduler->third_running_queue = NULL;
-		scheduler->join_waiting_queue = NULL;
-		scheduler->mutex_waiting_queue = NULL;
-		scheduler->exit_thread_list = NULL;
-		scheduler->current_queue_number = 1;
-		__sync_lock_release(&modifying_queue);
-		thread_number = 0;
-		// printf("scheduler initialized\n");
-		//	Add the thread to the end of the first run queue.
-		// printf("Adding to run queue\n");
-		// add_to_run_queue(1, new_thread);
-		// printf("Added to run queue\n");
-		// printf("Swapping contexts\n");
-		// printf("%d, %d\n", scheduler->first_running_queue->thread->pid, scheduler->first_running_queue->thread->context->uc_stack.ss_size);
-
-		// make context for main. it's also for scheduler. pid = 0
-		// printf("making context for main and scheduler\n");
-		in_scheduler = TRUE;
-		thread_node *main_thread = malloc(sizeof(thread_node));
-		main_thread->next = NULL;
-		main_thread->thread = malloc(sizeof(my_pthread));
-		main_thread->thread->context = malloc(sizeof(ucontext_t));
-		getcontext(main_thread->thread->context);
-		// main_thread->thread->context->uc_stack.ss_sp=malloc(5000);
-		// main_thread->thread->context->uc_stack.ss_size=5000;
-		// main_thread->thread->context->uc_stack.ss_flags=0;
-		main_thread->thread->priority = 100;
-		main_thread->thread->pid = thread_number;
-		main_thread->thread->ret_val = NULL;
-		main_thread->thread->yield_purpose = 0;
-		thread_number++;
-		// printf("Adding main to run queue\n");
-		//	If the queue is already being modified, wait for the operation to finish, then continue
-		// printf("Queue Lock value is %d\n", modifying_queue);
-		while (__sync_lock_test_and_set(&modifying_queue, 1) == 1)
-		{
-			// int placeholder = 0;
-			// someone modifying queue, wait
-		}
-		add_to_run_queue(1, main_thread);
-		__sync_lock_release(&modifying_queue);
-		// printf("Added to run queue\n");
-
-		// set return uc_link to exit()
-		in_scheduler = TRUE;
-		return_function = malloc(sizeof(ucontext_t));
-		getcontext(return_function);
-		return_function->uc_stack.ss_sp = malloc(4096);
-		return_function->uc_stack.ss_size = 4096;
-		makecontext(return_function, (void (*)(void)) & my_pthread_exit, 1, arg);
-		// printf("Made exit function, addr: %#x\n, return_function");
-
-		// init lock state
-		__sync_lock_release(&scheduler_running);
-		__sync_lock_release(&modifying_queue);
-
-		// init thread id and mutex id
-		mutex_id = 0;
-
-		// printf("Initialization complete\n");
+		my_pthread_initialize();
 	}
 	//	If there's no timer, create a new timer and set an alarm for every 25 ms
-	if (timer.it_interval.tv_usec == 0)
-	{
-		// printf("\nmaking a timer\n");
-		//		Set the signal handler to be the execute function
-		signal(SIGVTALRM, (void (*)(int)) & swap_contexts);
-		getitimer(ITIMER_VIRTUAL, &timer);
-		timer.it_value.tv_sec = 0;
-		timer.it_value.tv_usec = 25000;
-		timer.it_interval.tv_sec = 0;
-		timer.it_interval.tv_usec = 25000;
-		setitimer(ITIMER_VIRTUAL, &timer, NULL);
-	}
+	// if (timer.it_interval.tv_usec == 0)
+	// {}
 
 	// if (return_function == NULL) { // first time running, initialize everything
 	//

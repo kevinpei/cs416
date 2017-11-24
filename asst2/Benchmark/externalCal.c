@@ -7,11 +7,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <signal.h>
-#include <time.h>
 
 #include <pthread.h>
 
-#include "../mymalloc.h"
 #include "../my_pthread_t.h"
 
 #define DEFAULT_THREAD_NUM 2
@@ -103,7 +101,6 @@ void sig_handler(int signum) {
 }
 
 int main(int argc, char **argv) {
-	
 	int i = 0;
 
 	if (argc == 1) {
