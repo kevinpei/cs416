@@ -154,7 +154,7 @@ MemoryData *findFirstFree(int size, MemoryData *start)
 	//Iterate through the memory blocks until you find a block that's both free and can fit in the memory we want to malloc, plus its metadata
 	while (ptr != NULL)
 	{
-		printf("ptr isn't null\n");
+		// printf("ptr isn't null\n");
 		if (ptr->isFree == TRUE)
 		{
 			printf("Pointer is free\n");
@@ -177,24 +177,25 @@ MemoryData *findFirstFree(int size, MemoryData *start)
 /*
 This function swaps the contents of two pages. Used to make thread pages contiguous in memory when a thread has multiple pages.
 */
-// void swapPages(MemoryData *firstStartAddress, MemoryData *secondStartAddress)
-// {
-// 	char tempArray[pageSize];
-// 	memcpy(tempArray, firstStartAddress, pageSize);
-// 	memcpy(firstStartAddress, secondStartAddress, pageSize);
-// 	memcpy(secondStartAddress, tempArray, pageSize);
 void swapPages(PageData *firstPage, PageData *secondPage)
 {
-	char tempArray[metaSize];
-	int i = 0;
-	while (i < metaSize)
-	{
-		tempArray[i] = *((char *)firstPage + i);
-		*((char *)secondPage + i) = *((char *)firstPage + i);
-		*((char *)secondPage + i) = tempArray[i];
-		i++;
-	}
+	char tempArray[pageSize];
+	memcpy(tempArray, firstPage->pageStart, pageSize);
+	memcpy(firstPage->pageStart, secondPage->pageStart, pageSize);
+	memcpy(secondPage->pageStart, tempArray, pageSize);
 }
+// void swapPages(PageData *firstPage, PageData *secondPage)
+// {
+// 	char tempArray[metaSize];
+// 	int i = 0;
+// 	while (i < metaSize)
+// 	{
+// 		tempArray[i] = *((char *)firstPage + i);
+// 		*((char *)secondPage + i) = *((char *)firstPage + i);
+// 		*((char *)secondPage + i) = tempArray[i];
+// 		i++;
+// 	}
+// }
 
 /*
 A function to get the pageData that corresponds to the given page starting address.
@@ -386,6 +387,7 @@ void *myallocate(int size, char *myfile, int line, int req)
 					return NULL;
 				}
 				//The page is now continuous with another one and the metadata can be overwritten. Additionally, other threads can't use this page.
+				emptyPage->pid = threadPage->pid;
 				emptyPage->isContinuous = TRUE;
 				printf("Set to continuous\n");
 				PageData *ptr = threadPage;
@@ -545,12 +547,12 @@ void write_memory_to_file()
 	for (i = 0; i < pageNumber; i++)
 	{
 		PageData *ptr = (PageData *)memoryblock + i;
-		fprintf(memory_file, "address: %#x\n", ptr);
-		fprintf(memory_file, "pageStart: %#x\n", ptr->pageStart);
-		fprintf(memory_file, "pid: %d\n", ptr->pid);
-		fprintf(memory_file, "page_id: %d\n", ptr->page_id);
-		fprintf(memory_file, "isContinuous: %d\n", ptr->isContinuous);
-		fprintf(memory_file, "next: %#x\n\n", ptr->next);
+		fprintf(memory_file, "address: %#x, ", ptr);
+		fprintf(memory_file, "pageStart: %#x, ", ptr->pageStart);
+		fprintf(memory_file, "pid: %d, ", ptr->pid);
+		fprintf(memory_file, "page_id: %d, ", ptr->page_id);
+		fprintf(memory_file, "isContinuous: %d, ", ptr->isContinuous);
+		fprintf(memory_file, "next: %#x\n", ptr->next);
 	}
 	
 	fprintf(memory_file, "\n\nswap file:\n====================\n");
@@ -560,12 +562,12 @@ void write_memory_to_file()
 		char buffer[metaSize];
 		fgets(buffer, metaSize, swap_file);
 		PageData *ptr = (PageData *)buffer;
-		fprintf(memory_file, "address: %#x\n", ptr);
-		fprintf(memory_file, "pageStart: %#x\n", ptr->pageStart);
-		fprintf(memory_file, "pid: %d\n", ptr->pid);
-		fprintf(memory_file, "page_id: %d\n", ptr->page_id);
-		fprintf(memory_file, "isContinuous: %d\n", ptr->isContinuous);
-		fprintf(memory_file, "next: %#x\n\n", ptr->next);
+		fprintf(memory_file, "address: %#x, ", ptr);
+		fprintf(memory_file, "pageStart: %#x, ", ptr->pageStart);
+		fprintf(memory_file, "pid: %d, ", ptr->pid);
+		fprintf(memory_file, "page_id: %d, ", ptr->page_id);
+		fprintf(memory_file, "isContinuous: %d, ", ptr->isContinuous);
+		fprintf(memory_file, "next: %#x\n", ptr->next);
 	}
 	fclose(swap_file);
 	fclose(memory_file);
