@@ -400,10 +400,12 @@ int swap_contexts()
 			free(ptr);
 			__sync_lock_release(&scheduler_running);
 			__sync_lock_release(&modifying_queue);
+			setPagesAtFront(scheduler->first_running_queue->thread->pid);
 			setcontext(scheduler->first_running_queue->thread->context);
 		}
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
+		setPagesAtFront(scheduler->first_running_queue->thread->pid);
 		swapcontext(ptr->thread->context, scheduler->first_running_queue->thread->context);
 		break;
 	//		If the second queue has the highest priority thread, switch to that one.
@@ -437,10 +439,12 @@ int swap_contexts()
 			free(ptr);
 			__sync_lock_release(&scheduler_running);
 			__sync_lock_release(&modifying_queue);
+			setPagesAtFront(scheduler->second_running_queue->thread->pid);
 			setcontext(scheduler->second_running_queue->thread->context);
 		}
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
+		setPagesAtFront(scheduler->second_running_queue->thread->pid);
 		swapcontext(ptr->thread->context, scheduler->second_running_queue->thread->context);
 		break;
 	//		If the third queue has the highest priority thread, switch to that one.
@@ -474,10 +478,12 @@ int swap_contexts()
 			free(ptr);
 			__sync_lock_release(&scheduler_running);
 			__sync_lock_release(&modifying_queue);
+			setPagesAtFront(scheduler->third_running_queue->thread->pid);
 			setcontext(scheduler->third_running_queue->thread->context);
 		}
 		__sync_lock_release(&scheduler_running);
 		__sync_lock_release(&modifying_queue);
+		setPagesAtFront(scheduler->third_running_queue->thread->pid);
 		swapcontext(ptr->thread->context, scheduler->third_running_queue->thread->context);
 		break;
 	default:

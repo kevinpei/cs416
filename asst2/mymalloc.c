@@ -219,6 +219,7 @@ A function to set all pages of the given thread to the beginning of memory. Call
 */
 void setPagesAtFront(int pid)
 {
+	printf("Setting pages at front\n");
 	int x = 0;
 	while (x < pageNumber)
 	{
@@ -235,9 +236,9 @@ void setPagesAtFront(int pid)
 				i++;
 			}
 			//Protect the metadata at the beginning
-			mprotect(memoryblock, pageNumber * metaSize, PROT_READ | PROT_WRITE);
+			//mprotect(memoryblock, pageNumber * metaSize, PROT_READ | PROT_WRITE);
 			//Protect all memory beyond the continuous memory set aside
-			mprotect(memoryblock + pageNumber * metaSize + i * pageSize, (pageNumber - i) * pageSize, PROT_READ | PROT_WRITE);
+			//mprotect(memoryblock + pageNumber * metaSize + i * pageSize, (pageNumber - i) * pageSize, PROT_READ | PROT_WRITE);
 			return;
 		}
 		x++;
