@@ -142,6 +142,12 @@ int main(int argc, char **argv) {
 	// feel free to verify your answer here:
 	verify();
 
+	printf("sum is: %d\n", sum);
+	char* gaha = shalloc(13);
+	gaha = "I don't know\0";
+	printf("%c\n", gaha[3]);
+	free(gaha);
+	
 	free(mem);
 	free(thread);
 	free(counter);

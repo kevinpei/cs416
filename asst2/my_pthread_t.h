@@ -2,8 +2,8 @@
 // Author:	Yujie REN
 // Date:	09/23/2017
 
-// name: Kevin Pei, Derek Mao, Quzhi Li
-// username of iLab: ksp98, mm2180, ql88
+// name: Derek Mao mm2180, Kevin Pei ksp98, Quzhi Li ql88
+// username of iLab: ksp98
 // iLab Server: ls.cs.rutgers.edu
 #ifndef MY_PTHREAD_T_H
 #define MY_PTHREAD_T_H
@@ -22,60 +22,72 @@
 #include <ucontext.h>
 #include <sys/time.h>
 #include <signal.h>
+#include "mymalloc.h"
 
 typedef uint my_pthread_t;
 
-typedef struct pid_list_node_ {
+typedef struct pid_list_node_
+{
 	my_pthread_t pid;
 	struct pid_list_node_ *next;
 } pid_list_node;
 
-typedef struct my_pthread {
-	ucontext_t* context;
+typedef struct my_pthread
+{
+	ucontext_t *context;
 	int priority;
 	int execution_time;
 	my_pthread_t pid;
 	void *ret_val;
+	// 0 for timeout
+	// 1 for exit()
+	// 2 for join() and mutex_lock()
+	// 3 for yield()
 	int yield_purpose;
 } my_pthread;
 
-typedef struct thread_node {
-	my_pthread* thread;
-	struct thread_node* next;
+typedef struct thread_node
+{
+	my_pthread *thread;
+	struct thread_node *next;
 } thread_node;
 
-typedef struct mutex_waiting_queue_node {
-	my_pthread* thread;
+typedef struct mutex_waiting_queue_node
+{
+	my_pthread *thread;
 	uint mutex_lock;
-	struct mutex_waiting_queue_node* next;
+	struct mutex_waiting_queue_node *next;
 } mutex_waiting_queue_node;
 
-typedef struct join_waiting_queue_node {
-	my_pthread* thread;
+typedef struct join_waiting_queue_node
+{
+	my_pthread *thread;
 	my_pthread_t pid;
 	void **value_pointer;
-	struct join_waiting_queue_node* next;
+	struct join_waiting_queue_node *next;
 } join_waiting_queue_node;
 
-typedef struct threadControlBlock {
-//	The first run queue is round robin with a time quantum of 25 ms
-	thread_node* first_running_queue;
-//	The second run queue is round robin with a time quantum of 50 ms
-	thread_node* second_running_queue;
-//	The third run queue is FIFO
-	thread_node* third_running_queue;
-//	Stores which queue is currently running
+typedef struct threadControlBlock
+{
+	//	The first run queue is round robin with a time quantum of 25 ms
+	thread_node *first_running_queue;
+	//	The second run queue is round robin with a time quantum of 50 ms
+	thread_node *second_running_queue;
+	//	The third run queue is FIFO
+	thread_node *third_running_queue;
+	//	Stores which queue is currently running
 	int current_queue_number;
-//	The first wait queue is for threads waiting for a mutex lock
-	mutex_waiting_queue_node* mutex_waiting_queue;
-//	The second wait queue is for threads waiting to join another thread
-	join_waiting_queue_node* join_waiting_queue;
-//  The list contains pid of all finished thread
+	//	The first wait queue is for threads waiting for a mutex lock
+	mutex_waiting_queue_node *mutex_waiting_queue;
+	//	The second wait queue is for threads waiting to join another thread
+	join_waiting_queue_node *join_waiting_queue;
+	//  The list contains pid of all finished thread
 	pid_list_node *exit_thread_list;
 } tcb;
 
 /* mutex struct definition */
-typedef struct my_pthread_mutex_t {
+typedef struct my_pthread_mutex_t
+{
 	int initialized;
 	my_pthread_t pid;
 	int mutex_lock;
@@ -83,29 +95,30 @@ typedef struct my_pthread_mutex_t {
 } my_pthread_mutex_t;
 
 /* define your data structures here: */
-tcb* scheduler;
+tcb *scheduler;
 struct itimerval timer;
 int scheduler_running;
 int modifying_queue;
 ucontext_t *return_function;
 my_pthread_t thread_number;
 uint mutex_id;
+boolean in_scheduler;
+static char schedulerMemory[1000000];
 // Feel free to add your own auxiliary data structures
-
 
 /* Function Declarations: */
 
 //Add the given node to the given thread queue with that number
-int add_to_run_queue(int num, thread_node* node);
+int add_to_run_queue(int num, thread_node *node);
 
 //Get the currently executing thread
-thread_node* get_current_thread();
+thread_node *get_current_thread();
 
 //Add the given node to the end of the mutex waiting queue
-int add_to_mutex_wait_queue(mutex_waiting_queue_node* node);
+int add_to_mutex_wait_queue(mutex_waiting_queue_node *node);
 
 //Add the given node tot he end of the join waiting queue
-int add_to_join_wait_queue(join_waiting_queue_node* node);
+int add_to_join_wait_queue(join_waiting_queue_node *node);
 
 //Get the queue number whose first thread is the one with the highest priority.
 int get_highest_priority();
@@ -119,8 +132,11 @@ int swap_contexts();
 /* handling thread return without calling exit */
 void thread_return_handler();
 
+/* initalize the scheduler and timer */
+void my_pthread_initialize();
+
 /* create a new thread */
-int my_pthread_create(my_pthread_t * thread, pthread_attr_t * attr, void *(*function)(void*), void * arg);
+int my_pthread_create(my_pthread_t *thread, pthread_attr_t *attr, void *(*function)(void *), void *arg);
 
 /* give CPU pocession to other user level threads voluntarily */
 int my_pthread_yield();
